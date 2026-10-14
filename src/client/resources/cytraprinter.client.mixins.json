@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.steelaspect.cytraprinter.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientPacketListenerTeleportMixin",
+    "LocalPlayerRotationMixin",
+    "LocalPlayerSignMixin",
+    "MultiPlayerGameModeAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

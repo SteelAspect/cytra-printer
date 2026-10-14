@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "id": "cytraprinter",
+  "version": "${version}",
+  "name": "Cytra Printer",
+  "description": "Fast Litematica printer that simulates every placement first, so blocks go down with the right rotation or not at all. Put the same jar on the server for exact rotations on everything.",
+  "authors": ["steelaspect"],
+  "contact": {
+    "sources": "https://github.com/SteelAspect/cytra-printer",
+    "issues": "https://github.com/SteelAspect/cytra-printer/issues"
+  },
+  "license": "All-Rights-Reserved",
+  "icon": "assets/cytraprinter/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["dev.steelaspect.cytraprinter.CytraPrinter"],
+    "client": ["dev.steelaspect.cytraprinter.client.CytraPrinterClient"]
+  },
+  "mixins": [
+    "cytraprinter.mixins.json",
+    {"config": "cytraprinter.client.mixins.json", "environment": "client"}
+  ],
+  "depends": {
+    "fabricloader": ">=0.17.0",
+    "minecraft": "${minecraft_version}",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "recommends": {
+    "litematica": ">=${litematica_version}",
+    "malilib": ">=${malilib_version}"
+  },
+  "suggests": {
+    "containerautofill": "*"
+  }
+}

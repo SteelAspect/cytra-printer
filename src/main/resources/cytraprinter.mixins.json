@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.steelaspect.cytraprinter.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "BlockItemInvoker",
+    "BlockItemPlaceMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

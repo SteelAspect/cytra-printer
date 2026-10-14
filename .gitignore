@@ -1,0 +1,41 @@
+# Gradle
+build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Fabric / Loom dev runs (worlds, test data, logs)
+run/
+remappedSrc/
+logs/
+
+# IDEs
+out/
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+bin/
+.vscode/
+
+# Built jars outside build/
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local progress log
+PROGRESS.txt
+
+# Secrets: never commit webhooks, tokens or local env files
+*webhook*
+*.webhook
+.env
+.env.*
+secrets/
+*.secret
+
+# OS
+.DS_Store
+Thumbs.db
+
