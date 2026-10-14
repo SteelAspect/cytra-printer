@@ -188,6 +188,9 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             level.setBlock(pos.relative(f), Blocks.STONE.defaultBlockState(), flags);
             level.setBlock(pos.relative(f.getOpposite()), Blocks.STONE.defaultBlockState(), flags);
         }
+        if (state.getBlock() instanceof net.minecraft.world.level.block.WallSkullBlock) {
+            level.setBlock(pos.relative(state.getValue(BlockStateProperties.HORIZONTAL_FACING).getOpposite()), Blocks.STONE.defaultBlockState(), flags);
+        }
         if (state.getBlock() instanceof net.minecraft.world.level.block.WallHangingSignBlock) {
             level.setBlock(pos.relative(state.getValue(BlockStateProperties.HORIZONTAL_FACING).getClockWise()), Blocks.STONE.defaultBlockState(), flags);
         }

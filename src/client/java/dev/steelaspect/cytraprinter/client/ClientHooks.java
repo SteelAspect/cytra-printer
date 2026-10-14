@@ -11,8 +11,16 @@ public final class ClientHooks {
     public static BooleanSupplier rotationLock = () -> false;
     public static Runnable teleport = () -> {
     };
+    public static Runnable useItem = () -> {
+    };
+    /** Head yaw LocalPlayer.getViewYRot reports while the printer simulates a placement; NaN = vanilla. */
+    public static float simulatedHeadYaw = Float.NaN;
 
     private ClientHooks() {
+    }
+
+    public static void onUseItem() {
+        useItem.run();
     }
 
     public static void onTeleport() {

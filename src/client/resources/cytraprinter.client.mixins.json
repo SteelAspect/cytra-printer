@@ -7,7 +7,9 @@
     "ClientPacketListenerTeleportMixin",
     "LocalPlayerRotationMixin",
     "LocalPlayerSignMixin",
-    "MultiPlayerGameModeAccessor"
+    "LocalPlayerViewMixin",
+    "MultiPlayerGameModeAccessor",
+    "MultiPlayerGameModeUseMixin"
   ],
   "injectors": {
     "defaultRequire": 1

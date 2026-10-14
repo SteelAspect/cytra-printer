@@ -56,6 +56,17 @@ final class Look {
         headTicks = 0;
     }
 
+    /** The player uses an item by hand: the server gets the real rotation now (and the head starts over from it). */
+    static void syncReal(Minecraft mc) {
+        if (!locked) return;
+        LocalPlayer player = mc.player;
+        apply(mc, player.getYRot(), player.getXRot(), sneak);
+        if (headYaw != player.getYRot()) {
+            headYaw = player.getYRot();
+            headTicks = 0;
+        }
+    }
+
     static void reset() {
         locked = false;
     }

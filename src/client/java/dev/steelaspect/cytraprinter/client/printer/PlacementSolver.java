@@ -1,5 +1,6 @@
 package dev.steelaspect.cytraprinter.client.printer;
 
+import dev.steelaspect.cytraprinter.client.ClientHooks;
 import dev.steelaspect.cytraprinter.mixin.BlockItemInvoker;
 import dev.steelaspect.cytraprinter.state.StateRules;
 import net.minecraft.client.player.LocalPlayer;
@@ -51,6 +52,7 @@ public final class PlacementSolver {
         float head = player.yHeadRot, headO = player.yHeadRotO;
         player.yHeadRot = headYaw;
         player.yHeadRotO = headYaw;
+        ClientHooks.simulatedHeadYaw = headYaw;
         try {
             for (int s = 0; s < 2; s++) {
                 boolean sneak = s == 1;
@@ -79,6 +81,7 @@ public final class PlacementSolver {
             player.xRotO = pitchO;
             player.yHeadRot = head;
             player.yHeadRotO = headO;
+            ClientHooks.simulatedHeadYaw = Float.NaN;
         }
         return null;
     }
@@ -98,6 +101,7 @@ public final class PlacementSolver {
                 float h = wrap(plan.headYaw() + i * 90f);
                 player.yHeadRot = h;
                 player.yHeadRotO = h;
+                ClientHooks.simulatedHeadYaw = h;
                 BlockState result = simulate(level, player, item, stack, plan.hitResult(), plan.sneak(), plan.pos());
                 if (!StateRules.placementMatches(result, current, target, partnerPresent)) return false;
             }
@@ -109,6 +113,7 @@ public final class PlacementSolver {
             player.xRotO = pitchO;
             player.yHeadRot = head;
             player.yHeadRotO = headO;
+            ClientHooks.simulatedHeadYaw = Float.NaN;
         }
     }
 

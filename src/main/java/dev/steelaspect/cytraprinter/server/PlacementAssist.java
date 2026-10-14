@@ -42,14 +42,16 @@ public final class PlacementAssist {
     public static BlockState apply(ServerPlayer player, BlockItem item, BlockPlaceContext ctx, BlockState vanilla) {
         BlockPos pos = ctx.getClickedPos();
         BlockState want = IntentStore.take(player, pos);
-        if (want == null || !ServerConfig.enabled()) return vanilla;
+        // Vanilla said no (door top blocked, bed head blocked, no support...): stays no. Overriding a refusal could
+        // let a two-block placement overwrite whatever is in its way.
+        if (want == null || vanilla == null || !ServerConfig.enabled()) return vanilla;
         Block wantBlock = want.getBlock();
         if (wantBlock.asItem() != item) return vanilla;
 
-        boolean sameBlock = vanilla != null && vanilla.is(wantBlock);
-        // A different block from the same item only for standing/wall pairs (torch/wall torch, sign/wall sign...);
-        // never e.g. cauldron -> water cauldron.
-        if (!sameBlock && wantBlock != item.getBlock() && !(item instanceof StandingAndWallBlockItem)) return vanilla;
+        boolean sameBlock = vanilla.is(wantBlock);
+        // A different block from the same item only for standing/wall pairs (torch/wall torch, sign/wall sign...),
+        // which are single blocks; never e.g. cauldron -> water cauldron.
+        if (!sameBlock && !(item instanceof StandingAndWallBlockItem)) return vanilla;
 
         Level level = ctx.getLevel();
         BlockState result = sameBlock ? vanilla : wantBlock.defaultBlockState();
@@ -69,7 +71,8 @@ public final class PlacementAssist {
         // A bed's head goes where the facing points; that spot has to be free too.
         if (result.hasProperty(BlockStateProperties.BED_PART) && result.getValue(BlockStateProperties.BED_PART) == BedPart.FOOT) {
             BlockPos head = pos.relative(result.getValue(BlockStateProperties.HORIZONTAL_FACING));
-            if (!level.getBlockState(head).canBeReplaced(ctx) || !level.getWorldBorder().isWithinBounds(head)) return vanilla;
+            if (!head.equals(pos.relative(vanilla.getValue(BlockStateProperties.HORIZONTAL_FACING)))
+                    && (!level.getBlockState(head).canBeReplaced(ctx) || !level.getWorldBorder().isWithinBounds(head) || !level.mayInteract(player, head))) return vanilla;
         }
         if (result.equals(vanilla)) return vanilla;
         if (!((BlockItemInvoker) item).cytraprinter$canPlace(ctx, result)) return vanilla;

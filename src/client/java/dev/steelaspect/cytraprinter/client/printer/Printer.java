@@ -153,6 +153,11 @@ public final class Printer {
         if (placed == 0) breakBlocks(mc, jobs);
     }
 
+    public static void onUseItem() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && mc.getConnection() != null) Look.syncReal(mc);
+    }
+
     public static void onTeleport() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null) Look.onTeleport(mc.player);
@@ -404,6 +409,7 @@ public final class Printer {
         player.xRotO = plan.pitch();
         player.yHeadRot = plan.headYaw();
         player.yHeadRotO = plan.headYaw();
+        dev.steelaspect.cytraprinter.client.ClientHooks.simulatedHeadYaw = plan.headYaw();
         player.input.keyPresses = new Input(input.forward(), input.backward(), input.left(), input.right(), input.jump(), plan.sneak(), input.sprint());
         try {
             mc.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, plan.hitResult());
@@ -414,6 +420,7 @@ public final class Printer {
             player.xRotO = pitchO;
             player.yHeadRot = head;
             player.yHeadRotO = headO;
+            dev.steelaspect.cytraprinter.client.ClientHooks.simulatedHeadYaw = Float.NaN;
             player.input.keyPresses = input;
         }
     }

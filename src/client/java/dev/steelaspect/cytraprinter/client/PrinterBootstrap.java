@@ -32,5 +32,6 @@ final class PrinterBootstrap {
         ClientHooks.signEditor = SignText::onEditor;
         ClientHooks.rotationLock = Printer::rotationLocked;
         ClientHooks.teleport = Printer::onTeleport;
+        ClientHooks.useItem = Printer::onUseItem;
     }
 }
