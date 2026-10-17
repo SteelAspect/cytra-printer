@@ -88,6 +88,14 @@ public class PrinterClientGameTest implements FabricClientGameTest {
                 Configs.HOTBAR_SLOTS.setValueFromString("7,8,9");
             });
 
+            // CYTRA_TEST_ONLY=extras runs just the extras (exclude, strip, composter, coral, bedrock, observers).
+            if ("extras".equals(System.getenv("CYTRA_TEST_ONLY"))) {
+                extras(context, world, origin);
+                context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+                if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
+                return;
+            }
+
             // --- big build: every state, creative ---
             int[] size = new int[2];
             List<Cell> cells = world.getServer().computeOnServer(server -> buildAll(server, origin, size));
@@ -136,6 +144,9 @@ public class PrinterClientGameTest implements FabricClientGameTest {
 
             // --- small survival build, vanilla mode ---
             survival(context, world, origin.offset(0, 0, size[1] + 8));
+
+            // --- extras, survival ---
+            extras(context, world, origin.offset(size[0] + 8, 0, 0));
 
             context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
         }
@@ -462,6 +473,132 @@ public class PrinterClientGameTest implements FabricClientGameTest {
         check(mode + ": nothing placed where the item is missing", diamondAir, "something placed");
         int hotbarSlot = context.computeOnClient(c -> c.player.getInventory().getSelectedSlot());
         LOG.info("[{}] selected slot after printing: {}", mode, hotbarSlot);
+    }
+
+    // ---------------------------------------------------------------- extras
+
+    /**
+     * Survival, vanilla mode: a stripped log from a plain log and an axe, composters filled to 5 and 8, dead coral
+     * from live coral, live coral held back without water, an excluded block, a protected wrong block, bedrock
+     * broken with the piston trick (on a floor and with a slime block) and an observer that would fire a piston.
+     */
+    private void extras(ClientGameTestContext context, TestSingleplayerContext world, BlockPos o) {
+        String mode = "extras";
+        BlockPos max = o.offset(8, 4, 8);
+        BlockPos log = o.offset(1, 1, 1), comp5 = o.offset(3, 1, 1), comp8 = o.offset(5, 1, 1), deadCoral = o.offset(7, 1, 1);
+        BlockPos liveCoral = o.offset(1, 1, 7), excluded = o.offset(3, 1, 7), prot = o.offset(5, 1, 7);
+        BlockPos bedrockFloor = o.offset(7, 0, 7), bedrockHigh = o.offset(1, 1, 4);
+        BlockPos wall = o.offset(7, 1, 4), observer = o.offset(6, 1, 4), piston = o.offset(5, 1, 4);
+        int f = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, p.getY() == o.getY() ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), f);
+            level.setBlock(log, Blocks.STRIPPED_OAK_LOG.defaultBlockState().setValue(BlockStateProperties.AXIS, Direction.Axis.X), f);
+            level.setBlock(comp5, Blocks.COMPOSTER.defaultBlockState().setValue(BlockStateProperties.LEVEL_COMPOSTER, 5), f);
+            level.setBlock(comp8, Blocks.COMPOSTER.defaultBlockState().setValue(BlockStateProperties.LEVEL_COMPOSTER, 8), f);
+            level.setBlock(deadCoral, Blocks.DEAD_BRAIN_CORAL_BLOCK.defaultBlockState(), f);
+            level.setBlock(liveCoral, Blocks.TUBE_CORAL_BLOCK.defaultBlockState(), f);
+            level.setBlock(excluded, Blocks.GOLD_BLOCK.defaultBlockState(), f);
+            level.setBlock(prot, Blocks.STONE.defaultBlockState(), f);
+            level.setBlock(bedrockHigh, Blocks.STONE.defaultBlockState(), f);
+            level.setBlock(wall, Blocks.COBBLESTONE_WALL.defaultBlockState(), 3);
+            level.setBlock(piston, Blocks.PISTON.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.UP), f);
+            level.setBlock(observer, Blocks.OBSERVER.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.EAST), f);
+        });
+        LitematicaSchematic schematic = world.getServer().computeOnServer(server -> capture(server, o, max, "extras"));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            clear(server, o, max);
+            // Already there: the watched wall and the piston behind the observer, a protected wrong block, bedrock.
+            level.setBlock(wall, Blocks.COBBLESTONE_WALL.defaultBlockState(), 3);
+            level.setBlock(piston, Blocks.PISTON.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.UP), 3);
+            level.setBlock(prot, Blocks.EMERALD_BLOCK.defaultBlockState(), 3);
+            level.setBlock(bedrockFloor, Blocks.BEDROCK.defaultBlockState(), 3);
+            level.setBlock(bedrockHigh, Blocks.BEDROCK.defaultBlockState(), 3);
+        });
+        world.getServer().runCommand("gamemode survival @a");
+        world.getServer().runCommand("gamerule doTileDrops true");
+        world.getServer().runCommand("effect give @a haste infinite 1 true");
+        world.getServer().runOnServer(server -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            Inventory inv = p.getInventory();
+            inv.clearContent();
+            ItemStack pick = new ItemStack(Items.NETHERITE_PICKAXE);
+            pick.enchant(server.registryAccess().lookupOrThrow(net.minecraft.core.registries.Registries.ENCHANTMENT)
+                    .getOrThrow(net.minecraft.world.item.enchantment.Enchantments.EFFICIENCY), 5);
+            inv.setItem(0, new ItemStack(Items.DIAMOND_SWORD));
+            inv.setItem(9, new ItemStack(Items.OAK_LOG, 4));
+            inv.setItem(10, new ItemStack(Items.IRON_AXE));
+            inv.setItem(11, new ItemStack(Items.COMPOSTER, 2));
+            inv.setItem(12, new ItemStack(Items.PUMPKIN_PIE, 32));
+            inv.setItem(13, new ItemStack(Items.BRAIN_CORAL_BLOCK, 2));
+            inv.setItem(14, new ItemStack(Items.TUBE_CORAL_BLOCK, 2));
+            inv.setItem(15, new ItemStack(Items.GOLD_BLOCK, 4));
+            inv.setItem(16, new ItemStack(Items.STONE, 16));
+            inv.setItem(17, new ItemStack(Items.PISTON, 8));
+            inv.setItem(18, new ItemStack(Items.REDSTONE_TORCH, 8));
+            inv.setItem(19, new ItemStack(Items.SLIME_BLOCK, 4));
+            inv.setItem(20, pick);
+            inv.setItem(21, new ItemStack(Items.OBSERVER, 2));
+            p.getAbilities().mayfly = false;
+            p.getAbilities().flying = false;
+            p.onUpdateAbilities();
+            p.teleportTo(server.overworld(), o.getX() + 4.5, o.getY() + 1, o.getZ() + 4.5, Set.of(), 0f, 60f, true);
+        });
+        context.runOnClient(client -> {
+            Configs.USE_SERVER_HELPER.setBooleanValue(false);
+            Configs.EXCLUDED_BLOCKS.setStrings(List.of("gold_block"));
+            Configs.PROTECTED_BLOCKS.setStrings(List.of("emerald_block"));
+            Configs.FIX_WRONG_BLOCKS.setBooleanValue(true);
+            Configs.STRIP_LOGS.setBooleanValue(true);
+            Configs.COMPOSTER_LEVELS.setBooleanValue(true);
+            Configs.LIVE_CORAL_FOR_DEAD.setBooleanValue(true);
+            Configs.CORAL_WAIT_FOR_WATER.setBooleanValue(true);
+            Configs.BREAK_BEDROCK.setBooleanValue(true);
+            Configs.SAFE_OBSERVERS.setBooleanValue(true);
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, o, "printer-extras", true, true), false);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+        for (int i = 0; i < 6; i++) settle(context);
+        context.waitTicks(120); // coral dies, composter 7 -> 8
+        for (int i = 0; i < 2; i++) settle(context);
+        LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("extras-printed")));
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+
+        Map<BlockPos, BlockState> got = world.getServer().computeOnServer(server -> {
+            Map<BlockPos, BlockState> m = new LinkedHashMap<>();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) m.put(p.immutable(), server.overworld().getBlockState(p));
+            return m;
+        });
+        BlockState l = got.get(log);
+        check(mode + ": stripped log from plain log + axe", l.is(Blocks.STRIPPED_OAK_LOG) && l.getValue(BlockStateProperties.AXIS) == Direction.Axis.X, l.toString());
+        BlockState c5 = got.get(comp5), c8 = got.get(comp8);
+        check(mode + ": composter filled to 5", c5.is(Blocks.COMPOSTER) && c5.getValue(BlockStateProperties.LEVEL_COMPOSTER) == 5, c5.toString());
+        check(mode + ": composter filled to 8", c8.is(Blocks.COMPOSTER) && c8.getValue(BlockStateProperties.LEVEL_COMPOSTER) == 8, c8.toString());
+        check(mode + ": dead coral from live coral", got.get(deadCoral).is(Blocks.DEAD_BRAIN_CORAL_BLOCK), got.get(deadCoral).toString());
+        check(mode + ": live coral waits for water", got.get(liveCoral).isAir(), got.get(liveCoral).toString());
+        check(mode + ": excluded block not placed", got.get(excluded).isAir(), got.get(excluded).toString());
+        check(mode + ": protected block not broken", got.get(prot).is(Blocks.EMERALD_BLOCK), got.get(prot).toString());
+        check(mode + ": bedrock on a floor broken and printed", got.get(bedrockFloor).is(Blocks.STONE), got.get(bedrockFloor).toString());
+        check(mode + ": bedrock without a floor broken and printed", got.get(bedrockHigh).is(Blocks.STONE), got.get(bedrockHigh).toString());
+        check(mode + ": observer held back (would fire the piston)", got.get(observer).isAir(), got.get(observer).toString());
+        check(mode + ": piston never fired", got.get(piston).is(Blocks.PISTON) && !got.get(piston).getValue(BlockStateProperties.EXTENDED), got.get(piston).toString());
+        List<String> leftovers = new ArrayList<>();
+        for (Map.Entry<BlockPos, BlockState> e : got.entrySet()) {
+            BlockState s = e.getValue();
+            if (e.getKey().equals(piston)) continue;
+            if (s.is(Blocks.PISTON) || s.is(Blocks.PISTON_HEAD) || s.is(Blocks.MOVING_PISTON) || s.is(Blocks.SLIME_BLOCK)
+                    || s.is(Blocks.REDSTONE_TORCH) || s.is(Blocks.REDSTONE_WALL_TORCH)) leftovers.add(s + " at " + e.getKey().toShortString());
+        }
+        check(mode + ": bedrock setup cleaned up", leftovers.isEmpty(), leftovers.toString());
+
+        context.runOnClient(client -> {
+            Configs.EXCLUDED_BLOCKS.setStrings(List.of());
+            Configs.PROTECTED_BLOCKS.setStrings(List.of());
+            Configs.BREAK_BEDROCK.setBooleanValue(false);
+            DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic);
+        });
     }
 
     private void check(String label, boolean ok, String detail) {

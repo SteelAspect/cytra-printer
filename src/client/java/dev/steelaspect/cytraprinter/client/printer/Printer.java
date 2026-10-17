@@ -1,5 +1,6 @@
 package dev.steelaspect.cytraprinter.client.printer;
 
+import dev.steelaspect.cytraprinter.client.ClientHooks;
 import dev.steelaspect.cytraprinter.client.ServerHelper;
 import dev.steelaspect.cytraprinter.client.config.Configs;
 import dev.steelaspect.cytraprinter.client.mixin.MultiPlayerGameModeAccessor;
@@ -23,9 +24,22 @@ import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.BellBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ComposterBlock;
+import net.minecraft.world.level.block.CopperBulbBlock;
+import net.minecraft.world.level.block.CrafterBlock;
+import net.minecraft.world.level.block.DiodeBlock;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.world.level.block.PoweredRailBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.TntBlock;
 import net.minecraft.world.level.block.ComparatorBlock;
 import net.minecraft.world.level.block.DaylightDetectorBlock;
 import net.minecraft.world.level.block.DispenserBlock;
@@ -51,7 +65,9 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The printer loop, run at the end of every client tick. It looks at every position in reach, compares the
@@ -63,7 +79,7 @@ import java.util.List;
  * answered, and one that keeps failing is parked for a while instead of being retried forever.
  */
 public final class Printer {
-    private enum Kind { PLACE, CLICK, POT, BREAK }
+    private enum Kind { PLACE, CLICK, POT, BREAK, STRIP, COMPOST, BEDROCK }
 
     private record Job(Kind kind, BlockPos pos, BlockState target, BlockState world, Item item, double dist) {
     }
@@ -72,6 +88,13 @@ public final class Printer {
     private static final int STUCK_TICKS = 600;
     private static final long SOLVE_BUDGET_NANOS = 4_000_000L;
     private static final int MINING_TIMEOUT_TICKS = 200;
+    /** The server sends the time every second; this long without it means it is lagging. */
+    private static final long LAG_MILLIS = 2000;
+
+    private static final IdFilter<Block> EXCLUDED = IdFilter.blocks();
+    private static final IdFilter<Block> PROTECTED = IdFilter.blocks();
+    private static final IdFilter<Block> BEDROCK = IdFilter.blocks();
+    private static final IdFilter<Item> COMPOST_ITEMS = IdFilter.items();
 
     /** -Dcytraprinter.debug=true: log every spot the solver can't solve, with its neighbours. */
     private static final boolean DEBUG = Boolean.getBoolean("cytraprinter.debug");
@@ -102,6 +125,7 @@ public final class Printer {
         lastAfter.clear();
         placedSigns.clear();
         mining = null;
+        BedrockBreaker.reset();
         Stats.reset();
     }
 
@@ -117,8 +141,13 @@ public final class Printer {
     public static void tick(Minecraft mc) {
         ticks++;
         LocalPlayer player = mc.player;
+        if (Configs.PRINTING.getBooleanValue() && player != null && Configs.DISABLE_ON_DEATH.getBooleanValue() && player.isDeadOrDying()) {
+            Configs.PRINTING.setBooleanValue(false);
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Printing OFF (you died)"), false);
+        }
         if (!Configs.PRINTING.getBooleanValue() || player == null || mc.level == null || mc.gameMode == null || mc.getConnection() == null) {
             stopMining(mc);
+            BedrockBreaker.reset();
             Look.unlock(mc);
             return;
         }
@@ -130,6 +159,8 @@ public final class Printer {
         Look.lock(player);
         Look.tick();
         if (mc.screen != null || player.isUsingItem()) return;
+        Stats.lagging = Configs.PAUSE_ON_LAG.getBooleanValue() && System.currentTimeMillis() - ClientHooks.lastServerTimeMillis > LAG_MILLIS;
+        if (Stats.lagging) return;
         if (ticks % 200 == 0) prune();
         if (delay > 0) {
             delay--;
@@ -139,6 +170,15 @@ public final class Printer {
 
         // Survival mining in progress: keep at it, nothing else changes the held item meanwhile.
         if (mining != null && continueMining(mc)) return;
+        // Bedrock breaking in progress: it owns the tick until its setup is cleared away again.
+        if (BedrockBreaker.active()) {
+            try {
+                BedrockBreaker.tick(mc, ticks);
+            } finally {
+                Look.finish(mc, Look.headYaw);
+            }
+            return;
+        }
 
         List<Job> jobs = scan(mc, schematic);
         int placed = 0;
@@ -150,7 +190,10 @@ public final class Printer {
         } finally {
             Look.finish(mc, nextHead(player));
         }
-        if (placed == 0) breakBlocks(mc, jobs);
+        if (placed == 0) {
+            breakBlocks(mc, jobs);
+            if (mining == null) startBedrock(mc, jobs);
+        }
     }
 
     public static void onUseItem() {
@@ -188,6 +231,42 @@ public final class Printer {
             }
         }
         return best;
+    }
+
+    /**
+     * Adds the block under the crosshair to the excluded list, or takes it off again. Schematic blocks count
+     * (the ghost block you look at), otherwise the real block.
+     */
+    public static void toggleExcludeLookedAt(Minecraft mc) {
+        LocalPlayer player = mc.player;
+        if (player == null || mc.level == null) return;
+        WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
+        Vec3 eye = player.getEyePosition();
+        Vec3 look = player.getViewVector(1.0f);
+        double reach = player.blockInteractionRange() + Configs.EXTRA_REACH.getDoubleValue();
+        Block found = null;
+        for (double d = 0; d <= reach && found == null; d += 0.05) {
+            BlockPos p = BlockPos.containing(eye.add(look.scale(d)));
+            BlockState s = schematic != null ? schematic.getBlockState(p) : Blocks.AIR.defaultBlockState();
+            if (!s.isAir() && !(s.getBlock() instanceof LiquidBlock)) found = s.getBlock();
+            else {
+                BlockState w = mc.level.getBlockState(p);
+                if (!w.isAir() && !(w.getBlock() instanceof LiquidBlock)) found = w.getBlock();
+            }
+        }
+        if (found == null) {
+            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Look at a block to exclude it"), true);
+            return;
+        }
+        String id = IdFilter.idOf(found);
+        String full = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(found).toString();
+        List<String> list = new ArrayList<>(Configs.EXCLUDED_BLOCKS.getStrings());
+        boolean removed = list.removeIf(e -> e.trim().equalsIgnoreCase(id) || e.trim().equalsIgnoreCase(full));
+        if (!removed) list.add(id);
+        Configs.EXCLUDED_BLOCKS.setStrings(list);
+        Configs.INSTANCE.save();
+        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                (removed ? "Printer will place " : "Printer skips ") + found.getName().getString()), true);
     }
 
     // ---------------------------------------------------------------- scanning
@@ -233,11 +312,14 @@ public final class Printer {
             return null;
         }
         double dist = eye.distanceToSqr(Vec3.atCenterOf(pos));
+        // Excluded blocks: the printer leaves their spots alone, missing or wrong.
+        if (!target.isAir() && EXCLUDED.matches(Configs.EXCLUDED_BLOCKS.getStrings(), target.getBlock())) return null;
 
         if (target.isAir()) {
             if (!Configs.CLEAR_EXTRA_BLOCKS.getBooleanValue() || world.isAir() || world.getBlock() instanceof LiquidBlock) return null;
             if (!insidePlacement(pos)) return null;
             Stats.wrong++;
+            if (isBedrock(world)) return bedrockJob(mc, pos, target, world, dist);
             return new Job(Kind.BREAK, pos, target, world, null, dist);
         }
         // Never liquids; the upper halves of doors/tall plants and bed heads come with the other half.
@@ -255,6 +337,48 @@ public final class Printer {
             target = Blocks.FLOWER_POT.defaultBlockState();
         }
 
+        // Composter fill level: fill it up to the level (it turns from 7 to 8 by itself), empty it if it's ready.
+        if (Configs.COMPOSTER_LEVELS.getBooleanValue() && target.is(Blocks.COMPOSTER) && world.is(Blocks.COMPOSTER)) {
+            int want = target.getValue(ComposterBlock.LEVEL), have = world.getValue(ComposterBlock.LEVEL);
+            if (want == have) {
+                attempts.remove(pos.asLong());
+                return null;
+            }
+            if (have == ComposterBlock.READY || have < Math.min(want, ComposterBlock.MAX_LEVEL)) {
+                Stats.remaining++;
+                return new Job(Kind.COMPOST, pos, target, world, null, dist);
+            }
+            if (have == ComposterBlock.MAX_LEVEL && want == ComposterBlock.READY) {
+                Stats.held++;
+                return null;
+            }
+            Stats.wrong++;
+            return Configs.FIX_WRONG_BLOCKS.getBooleanValue() && !isProtected(world) ? new Job(Kind.BREAK, pos, target, world, null, dist) : null;
+        }
+
+        // Coral: live coral without water dies in a few seconds, so it waits for water (or is left to die when the
+        // schematic wants the dead one).
+        Block deadForm = Variants.dead(target.getBlock());
+        if (deadForm != null && Configs.CORAL_WAIT_FOR_WATER.getBooleanValue() && !Variants.coralSurvives(level, pos)
+                && (world.canBeReplaced() || world.is(deadForm))) {
+            Stats.held++;
+            return null;
+        }
+        Block aliveForm = Variants.alive(target.getBlock());
+        if (aliveForm != null && world.is(aliveForm) && !Variants.coralSurvives(level, pos)
+                && StateRules.placedCorrectly(world, Variants.copyProperties(target, aliveForm))) {
+            Stats.held++;
+            return null;
+        }
+
+        // Stripped logs: the plain log is there the right way round, so strip it with an axe.
+        Block log = Variants.unstripped(target.getBlock());
+        if (log != null && Configs.STRIP_LOGS.getBooleanValue() && world.is(log)
+                && StateRules.placedCorrectly(world, Variants.copyProperties(target, log))) {
+            Stats.remaining++;
+            return new Job(Kind.STRIP, pos, target, world, null, dist);
+        }
+
         if (StateRules.placedCorrectly(world, target)) {
             if (Configs.CLICK_FIX_STATES.getBooleanValue() && clicksNeeded(world, target) > 0) {
                 Stats.remaining++;
@@ -267,10 +391,70 @@ public final class Printer {
         if (!(item instanceof BlockItem)) return null;
         if (StateRules.canGrowInto(world, target) || world.canBeReplaced()) {
             Stats.remaining++;
-            return new Job(Kind.PLACE, pos, target, world, item, dist);
+            BlockState place = world.canBeReplaced() ? substitute(mc, pos, target) : target;
+            return new Job(Kind.PLACE, pos, place, world, place.getBlock().asItem(), dist);
         }
         Stats.wrong++;
-        return Configs.FIX_WRONG_BLOCKS.getBooleanValue() ? new Job(Kind.BREAK, pos, target, world, null, dist) : null;
+        if (isBedrock(world)) return bedrockJob(mc, pos, target, world, dist);
+        return Configs.FIX_WRONG_BLOCKS.getBooleanValue() && !isProtected(world) ? new Job(Kind.BREAK, pos, target, world, null, dist) : null;
+    }
+
+    /**
+     * What to place for the target when its own item isn't in the inventory: the plain log (stripped afterwards)
+     * or live coral (dies into the dead one). Creative always places the target itself.
+     */
+    private static BlockState substitute(Minecraft mc, BlockPos pos, BlockState target) {
+        LocalPlayer player = mc.player;
+        Block b = target.getBlock();
+        if (player.hasInfiniteMaterials() || Hotbar.carries(player, b.asItem())) return target;
+        Block log = Variants.unstripped(b);
+        if (log != null && Configs.STRIP_LOGS.getBooleanValue() && Hotbar.carries(player, log.asItem()) && Hotbar.any(player, Printer::isAxe)) {
+            return Variants.copyProperties(target, log);
+        }
+        Block alive = Variants.alive(b);
+        if (alive != null && Configs.LIVE_CORAL_FOR_DEAD.getBooleanValue() && Hotbar.carries(player, alive.asItem()) && !Variants.coralSurvives(mc.level, pos)) {
+            return Variants.copyProperties(target, alive);
+        }
+        return target;
+    }
+
+    private static boolean isAxe(ItemStack s) {
+        return s.getItem() instanceof AxeItem && (!s.isDamageableItem() || s.getMaxDamage() - s.getDamageValue() > 2);
+    }
+
+    /** A block on the bedrock list while bedrock breaking is on. */
+    static boolean isBedrock(BlockState state) {
+        return Configs.BREAK_BEDROCK.getBooleanValue() && !state.isAir() && BEDROCK.matches(Configs.BEDROCK_BLOCKS.getStrings(), state.getBlock());
+    }
+
+    private static boolean isProtected(BlockState state) {
+        return PROTECTED.matches(Configs.PROTECTED_BLOCKS.getStrings(), state.getBlock());
+    }
+
+    /** Creative breaks bedrock like anything else; survival needs the piston trick. */
+    private static Job bedrockJob(Minecraft mc, BlockPos pos, BlockState target, BlockState world, double dist) {
+        return new Job(mc.player.getAbilities().instabuild ? Kind.BREAK : Kind.BEDROCK, pos, target, world, null, dist);
+    }
+
+    /** HUD key for bedrock breaking: "active", or what it is waiting for; null when there is none in reach. */
+    public static String bedrockStatus() {
+        if (BedrockBreaker.active()) return "active";
+        return BedrockBreaker.blockedBy;
+    }
+
+    /** Parks a spot for a while (bedrock that couldn't be broken). */
+    static void giveUp(BlockPos pos) {
+        stuckUntil.put(pos.asLong(), ticks + STUCK_TICKS);
+    }
+
+    private static void startBedrock(Minecraft mc, List<Job> jobs) {
+        List<BlockPos> targets = new ArrayList<>();
+        for (Job j : jobs) if (j.kind() == Kind.BEDROCK) targets.add(j.pos());
+        if (targets.isEmpty()) {
+            BedrockBreaker.blockedBy = null;
+            return;
+        }
+        BedrockBreaker.start(mc, targets, ticks);
     }
 
     private static boolean insidePlacement(BlockPos pos) {
@@ -368,25 +552,80 @@ public final class Printer {
     /**
      * Safe redstone order: observers, pistons, dispensers and droppers wait until the blocks around them are done,
      * so they don't fire or push while the build is half finished. An observer always waits for the block it
-     * watches; other neighbours that are themselves such components don't hold it back.
+     * watches; other neighbours that are themselves such components don't hold it back. Safe observers add the
+     * checks in {@link #observerUnsafe} and {@link #observerAimedHere}.
      */
     private static boolean isHeld(ClientLevel level, WorldSchematic schematic, BlockPos pos, BlockState target) {
-        if (!Configs.SAFE_REDSTONE_ORDER.getBooleanValue() || !isSensitive(target)) return false;
-        LayerRange range = DataManager.getRenderLayerRange();
+        if (!isSensitive(target)) return false;
         boolean observer = target.getBlock() instanceof ObserverBlock;
-        for (Direction dir : Direction.values()) {
-            BlockPos n = pos.relative(dir);
-            BlockState want = schematic.getBlockState(n);
-            if (want.isAir() || want.getBlock() instanceof LiquidBlock || !range.isPositionWithinRange(n)) continue;
-            boolean watched = observer && dir == target.getValue(BlockStateProperties.FACING);
-            if (!watched && isSensitive(want)) continue;
-            BlockState have = level.getBlockState(n);
-            if (!StateRules.placedCorrectly(have, want)) {
-                // Upper halves are placed with their lower half.
-                if (want.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) && want.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER) continue;
-                return true;
+        if (Configs.SAFE_REDSTONE_ORDER.getBooleanValue()) {
+            LayerRange range = DataManager.getRenderLayerRange();
+            for (Direction dir : Direction.values()) {
+                BlockPos n = pos.relative(dir);
+                BlockState want = schematic.getBlockState(n);
+                if (want.isAir() || want.getBlock() instanceof LiquidBlock || !range.isPositionWithinRange(n)) continue;
+                boolean watched = observer && dir == target.getValue(BlockStateProperties.FACING);
+                if (!watched && isSensitive(want)) continue;
+                if (notDone(level, n, want)) return true;
             }
-            if (Configs.CLICK_FIX_STATES.getBooleanValue() && clicksNeeded(have, want) > 0) return true;
+        }
+        if (Configs.SAFE_OBSERVERS.getBooleanValue()) {
+            return observer ? observerUnsafe(level, schematic, pos, target) : observerAimedHere(level, schematic, pos);
+        }
+        return false;
+    }
+
+    /** The schematic block at pos isn't there yet, or not set right. Upper halves don't count (placed with the lower). */
+    private static boolean notDone(ClientLevel level, BlockPos pos, BlockState want) {
+        BlockState have = level.getBlockState(pos);
+        if (!StateRules.placedCorrectly(have, want)) {
+            return !(want.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF) && want.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF) == DoubleBlockHalf.UPPER);
+        }
+        return Configs.CLICK_FIX_STATES.getBooleanValue() && clicksNeeded(have, want) > 0;
+    }
+
+    /**
+     * An observer would fire on placement or soon after: the block it watches (and, for a line of observers watching
+     * each other, every block down the line) isn't finished, or the watched block changes shape when the observer
+     * appears next to it (walls, fences, panes, wire) while something behind the observer would react to the pulse.
+     */
+    private static boolean observerUnsafe(ClientLevel level, WorldSchematic schematic, BlockPos pos, BlockState target) {
+        Direction facing = target.getValue(BlockStateProperties.FACING);
+        BlockPos watched = pos.relative(facing);
+        BlockPos cur = pos;
+        BlockState curWant = target;
+        for (int i = 0; i < 16; i++) {
+            BlockPos next = cur.relative(curWant.getValue(BlockStateProperties.FACING));
+            BlockState want = schematic.getBlockState(next);
+            if (!want.isAir() && !(want.getBlock() instanceof LiquidBlock) && notDone(level, next, want)) return true;
+            if (!(want.getBlock() instanceof ObserverBlock) || next.equals(pos)) break;
+            cur = next;
+            curWant = want;
+        }
+        BlockState have = level.getBlockState(watched);
+        BlockState after = have.updateShape(level, level, watched, facing.getOpposite(), pos, target, level.getRandom());
+        if (after.equals(have)) return false;
+        BlockPos out = pos.relative(facing.getOpposite());
+        BlockState outState = level.getBlockState(out);
+        if (reactsToPower(outState)) return true;
+        if (outState.isRedstoneConductor(level, out)) {
+            for (Direction d : Direction.values()) {
+                BlockPos n = out.relative(d);
+                if (!n.equals(pos) && reactsToPower(level.getBlockState(n))) return true;
+            }
+        }
+        return false;
+    }
+
+    /** A placed observer points its output at pos and still has an unfinished block in front: it will fire into pos. */
+    private static boolean observerAimedHere(ClientLevel level, WorldSchematic schematic, BlockPos pos) {
+        for (Direction dir : Direction.values()) {
+            BlockPos o = pos.relative(dir);
+            BlockState obs = level.getBlockState(o);
+            if (!(obs.getBlock() instanceof ObserverBlock) || obs.getValue(BlockStateProperties.FACING) != dir) continue;
+            BlockPos w = o.relative(dir);
+            BlockState want = schematic.getBlockState(w);
+            if (!want.isAir() && !(want.getBlock() instanceof LiquidBlock) && notDone(level, w, want)) return true;
         }
         return false;
     }
@@ -396,8 +635,17 @@ public final class Printer {
         return b instanceof ObserverBlock || b instanceof PistonBaseBlock || b instanceof DispenserBlock;
     }
 
+    /** Blocks that do something when an observer pulses into them (or into the block they sit on). */
+    private static boolean reactsToPower(BlockState state) {
+        Block b = state.getBlock();
+        return b instanceof PistonBaseBlock || b instanceof DispenserBlock || b instanceof RedStoneWireBlock || b instanceof DiodeBlock
+                || b instanceof NoteBlock || b instanceof TntBlock || b instanceof DoorBlock || b instanceof TrapDoorBlock
+                || b instanceof FenceGateBlock || b instanceof RedstoneLampBlock || b instanceof PoweredRailBlock || b instanceof BellBlock
+                || b instanceof HopperBlock || b instanceof CrafterBlock || b instanceof CopperBulbBlock;
+    }
+
     /** Clicks the block with the current main hand item, with the plan's look and sneak, predicting it locally. */
-    private static void use(Minecraft mc, PlacePlan plan) {
+    static void use(Minecraft mc, PlacePlan plan) {
         LocalPlayer player = mc.player;
         Look.apply(mc, plan.yaw(), plan.pitch(), plan.sneak());
         float yaw = player.getYRot(), pitch = player.getXRot(), yawO = player.yRotO, pitchO = player.xRotO;
@@ -430,6 +678,8 @@ public final class Printer {
     private static void click(Minecraft mc, List<Job> jobs, int placedThisTick) {
         LocalPlayer player = mc.player;
         int clicks = 0;
+        Set<Item> needed = new HashSet<>();
+        for (Job j : jobs) if (j.kind() == Kind.PLACE) needed.add(j.item());
         int potBudget = Math.max(0, Configs.PLACEMENTS_PER_TICK.getIntegerValue() - placedThisTick);
         for (Job job : jobs) {
             if (clicks >= MAX_CLICKS_PER_TICK) break;
@@ -450,8 +700,62 @@ public final class Printer {
                 for (int i = 0; i < n; i++) use(mc, plan);
                 touched(mc, job.pos(), world, job.target());
                 clicks += n;
+            } else if (job.kind() == Kind.STRIP) {
+                boolean axe = player.hasInfiniteMaterials() && !Hotbar.any(player, Printer::isAxe)
+                        ? Hotbar.select(mc, Items.DIAMOND_AXE)
+                        : Hotbar.selectBest(mc, s -> isAxe(s) ? 1 : 0);
+                if (!axe) {
+                    Stats.missing.merge(Items.IRON_AXE, 1, Integer::sum);
+                    continue;
+                }
+                BlockState world = mc.level.getBlockState(job.pos());
+                use(mc, clickPlan(player, job.pos(), world));
+                touched(mc, job.pos(), world, job.target());
+                clicks++;
+            } else if (job.kind() == Kind.COMPOST) {
+                clicks += compost(mc, job, needed);
             }
         }
+    }
+
+    /**
+     * Fills a composter towards its level with compostable items (best chance first, never items the build still
+     * needs), or empties a full one. Several items go in at once when that can't overshoot: each raises it by at
+     * most one, and at 7 vanilla takes no more.
+     */
+    private static int compost(Minecraft mc, Job job, Set<Item> needed) {
+        LocalPlayer player = mc.player;
+        BlockPos pos = job.pos();
+        BlockState world = mc.level.getBlockState(pos);
+        if (!world.is(Blocks.COMPOSTER)) return 0;
+        int have = world.getValue(ComposterBlock.LEVEL);
+        PlacePlan plan = clickPlan(player, pos, world);
+        if (have == ComposterBlock.READY) {
+            use(mc, plan);
+            touched(mc, pos, world, job.target());
+            return 1;
+        }
+        int n = Math.min(job.target().getValue(ComposterBlock.LEVEL), ComposterBlock.MAX_LEVEL) - have;
+        if (n <= 0) return 0;
+        boolean ok = player.hasInfiniteMaterials()
+                ? Hotbar.select(mc, Items.PUMPKIN_PIE)
+                : Hotbar.selectBest(mc, s -> compostChance(s, needed));
+        if (!ok) {
+            Stats.missing.merge(Items.WHEAT_SEEDS, 1, Integer::sum);
+            return 0;
+        }
+        if (!player.hasInfiniteMaterials()) n = Math.min(n, player.getMainHandItem().getCount());
+        for (int i = 0; i < n; i++) use(mc, plan);
+        touched(mc, pos, world, job.target());
+        return n;
+    }
+
+    private static double compostChance(ItemStack s, Set<Item> needed) {
+        float chance = ComposterBlock.COMPOSTABLES.getFloat(s.getItem());
+        if (chance <= 0 || needed.contains(s.getItem())) return 0;
+        List<String> allowed = Configs.COMPOSTER_ITEMS.getStrings();
+        if (!allowed.isEmpty() && !COMPOST_ITEMS.matches(allowed, s.getItem())) return 0;
+        return chance;
     }
 
     /** Levers wait until nothing else in reach is left to place (they switch things on). */
@@ -518,6 +822,7 @@ public final class Printer {
         }
         Job job = breaks.get(0);
         Hotbar.selectTool(mc, job.world());
+        ((MultiPlayerGameModeAccessor) mc.gameMode).cytraprinter$syncCarriedItem();
         mining = job.pos();
         miningStart = ticks;
         ((MultiPlayerGameModeAccessor) mc.gameMode).cytraprinter$setDestroyDelay(0);
@@ -526,7 +831,8 @@ public final class Printer {
     }
 
     private static boolean canBreak(ClientLevel level, LocalPlayer player, BlockPos pos, BlockState state) {
-        if (state.getDestroySpeed(level, pos) < 0 || state.getBlock() instanceof LiquidBlock) return false;
+        if (state.getBlock() instanceof LiquidBlock || isProtected(state)) return false;
+        if (state.getDestroySpeed(level, pos) < 0 && !(player.getAbilities().instabuild && isBedrock(state))) return false;
         if (!Configs.BREAK_CONTAINERS.getBooleanValue() && level.getBlockEntity(pos) instanceof Container) return false;
         return !player.blockActionRestricted(level, pos, player.gameMode());
     }

@@ -29,6 +29,9 @@ public final class HudRenderer implements IRenderer {
         List<Integer> colors = new ArrayList<>();
         add(lines, colors, StringUtils.translate(P + "status", Stats.perSecond(), Stats.remaining, Stats.placedTotal), 0xFFFFFFFF);
         add(lines, colors, StringUtils.translate(P + "helper." + ServerHelper.statusKey()), 0xFFA0A0A0);
+        if (Stats.lagging) add(lines, colors, StringUtils.translate(P + "lagging"), 0xFFFF5050);
+        String bedrock = dev.steelaspect.cytraprinter.client.printer.Printer.bedrockStatus();
+        if (bedrock != null) add(lines, colors, StringUtils.translate(P + "bedrock." + bedrock), 0xFFFFD040);
         if (!Stats.missing.isEmpty()) {
             StringBuilder sb = new StringBuilder();
             int n = 0;

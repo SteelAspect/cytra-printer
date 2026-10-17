@@ -34,6 +34,23 @@ anything that depends on neighbours stay vanilla, so it can't create anything a 
 Without the server part, the printer still works on any server (vanilla mode): it just skips the rare block it
 can't place exactly from your position.
 
+## Extras
+
+- **Excluded blocks** (Blocks tab): ids or tags the printer never places or fixes. Bind **Exclude Looked-At Block**
+  to add/remove the block under your crosshair. **Protected blocks** are never broken.
+- **Strip logs**: no stripped logs in your inventory but plain ones and an axe? It places the plain log and strips it.
+- **Composter levels**: fills composters to the schematic's level (best compost chance first, never items the build
+  still needs); a full composter is emptied first.
+- **Coral**: live coral stands in for dead coral (it dies by itself), and live coral waits until there is water so it
+  doesn't die.
+- **Bedrock breaking** (off by default, survival): the piston trick on listed blocks where the schematic wants
+  something else. Needs pistons, redstone torches, slime blocks (only without a floor) and a pickaxe that mines a
+  piston instantly (Efficiency V + Haste II). Everything it sets up is mined again afterwards.
+- **Safe observers**: observers wait until a whole line of watched blocks is done, and don't go next to a
+  wall/fence/wire that would change shape while something behind them would react; pistons wait for observers
+  aimed at them.
+- **Pause on lag** and **turn off on death**.
+
 ## Restocking
 
 With Alloy Container installed (and its "printer pulls" setting on), missing blocks are pulled from shulker boxes

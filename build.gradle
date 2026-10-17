@@ -107,4 +107,11 @@ java {
 // CYTRA_PRINTER_DEBUG=1 logs every spot the printer can't solve during game tests.
 tasks.matching { it.name == 'runClientGameTest' }.configureEach {
     if (System.getenv('CYTRA_PRINTER_DEBUG')) jvmArgs '-Dcytraprinter.debug=true'
+    // Test games start muted.
+    doFirst {
+        def options = file('build/run/clientGameTest/options.txt')
+        options.parentFile.mkdirs()
+        def lines = options.exists() ? options.readLines().findAll { !it.startsWith('soundCategory_master:') } : []
+        options.text = (lines + 'soundCategory_master:0.0').join('\n') + '\n'
+    }
 }

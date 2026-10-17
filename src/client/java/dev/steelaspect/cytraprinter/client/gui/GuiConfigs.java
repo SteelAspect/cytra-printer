@@ -15,7 +15,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
-/** Settings screen: Printer / Accuracy / HUD / Hotkeys tabs and the server helper status. */
+/** Settings screen: Printer / Accuracy / Blocks / Extras / HUD / Hotkeys tabs and the server helper status. */
 public class GuiConfigs extends GuiConfigsBase {
     private static Tab tab = Tab.PRINTER;
 
@@ -48,7 +48,7 @@ public class GuiConfigs extends GuiConfigsBase {
 
     @Override
     protected int getConfigWidth() {
-        return tab == Tab.HOTKEYS ? 204 : 120;
+        return tab == Tab.HOTKEYS || tab == Tab.BLOCKS || tab == Tab.EXTRAS ? 204 : 120;
     }
 
     @Override
@@ -56,6 +56,8 @@ public class GuiConfigs extends GuiConfigsBase {
         List<? extends IConfigBase> configs = switch (tab) {
             case PRINTER -> Configs.PRINTER;
             case ACCURACY -> Configs.ACCURACY;
+            case BLOCKS -> Configs.BLOCKS;
+            case EXTRAS -> Configs.EXTRAS;
             case HUD -> Configs.HUD;
             case HOTKEYS -> Configs.HOTKEY_TAB;
         };
@@ -63,7 +65,7 @@ public class GuiConfigs extends GuiConfigsBase {
     }
 
     private enum Tab {
-        PRINTER, ACCURACY, HUD, HOTKEYS;
+        PRINTER, ACCURACY, BLOCKS, EXTRAS, HUD, HOTKEYS;
 
         final String key = CytraPrinter.MOD_ID + ".gui.tab." + name().toLowerCase(java.util.Locale.ROOT);
     }

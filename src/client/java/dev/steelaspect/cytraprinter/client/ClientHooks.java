@@ -15,6 +15,8 @@ public final class ClientHooks {
     };
     /** Head yaw LocalPlayer.getViewYRot reports while the printer simulates a placement; NaN = vanilla. */
     public static float simulatedHeadYaw = Float.NaN;
+    /** When the server last sent the time (it does every second): an old value means the server is lagging. */
+    public static volatile long lastServerTimeMillis = System.currentTimeMillis();
 
     private ClientHooks() {
     }

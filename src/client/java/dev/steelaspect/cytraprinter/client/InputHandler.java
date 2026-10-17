@@ -44,6 +44,10 @@ public final class InputHandler implements IKeybindProvider, IHotkeyCallback {
             GuiBase.openGui(new GuiConfigs());
             return true;
         }
+        if (key == Configs.EXCLUDE_LOOKED_AT.getKeybind()) {
+            dev.steelaspect.cytraprinter.client.printer.Printer.toggleExcludeLookedAt(net.minecraft.client.Minecraft.getInstance());
+            return true;
+        }
         return false;
     }
 }

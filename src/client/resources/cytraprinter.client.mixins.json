@@ -4,7 +4,9 @@
   "package": "dev.steelaspect.cytraprinter.client.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "AxeItemAccessor",
     "ClientPacketListenerTeleportMixin",
+    "ClientPacketListenerTimeMixin",
     "LocalPlayerRotationMixin",
     "LocalPlayerSignMixin",
     "LocalPlayerViewMixin",

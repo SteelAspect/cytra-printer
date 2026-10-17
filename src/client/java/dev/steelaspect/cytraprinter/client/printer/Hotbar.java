@@ -9,6 +9,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
 
 /** Gets items into the selected hotbar slot: select, swap in from the inventory, or (creative) create. */
@@ -87,6 +88,44 @@ public final class Hotbar {
         }
         nextSlot = (nextSlot + 1) % slots.length;
         return slots[nextSlot];
+    }
+
+    /**
+     * Puts the best-scoring stack (score above 0) in the main hand; survival only, nothing is created. Ties go to the
+     * hotbar. False when nothing in the inventory scores.
+     */
+    public static boolean selectBest(Minecraft mc, ToDoubleFunction<ItemStack> score) {
+        Inventory inv = mc.player.getInventory();
+        int best = -1;
+        double bestScore = 0;
+        for (int i = 0; i < Inventory.INVENTORY_SIZE; i++) {
+            ItemStack s = inv.getItem(i);
+            if (s.isEmpty()) continue;
+            double sc = score.applyAsDouble(s);
+            if (sc > bestScore || (sc == bestScore && best >= Inventory.SELECTION_SIZE && i < Inventory.SELECTION_SIZE)) {
+                best = i;
+                bestScore = sc;
+            }
+        }
+        if (best < 0) return false;
+        if (best < Inventory.SELECTION_SIZE) inv.setSelectedSlot(best);
+        else swapIn(mc, best);
+        return true;
+    }
+
+    /** True if some stack in the inventory passes the test. */
+    public static boolean any(LocalPlayer player, Predicate<ItemStack> test) {
+        Inventory inv = player.getInventory();
+        for (int i = 0; i < Inventory.INVENTORY_SIZE; i++) {
+            ItemStack s = inv.getItem(i);
+            if (!s.isEmpty() && test.test(s)) return true;
+        }
+        return false;
+    }
+
+    /** Has the item in the inventory, creative or not. */
+    public static boolean carries(LocalPlayer player, Item item) {
+        return any(player, s -> s.is(item));
     }
 
     public static boolean has(LocalPlayer player, Item item) {

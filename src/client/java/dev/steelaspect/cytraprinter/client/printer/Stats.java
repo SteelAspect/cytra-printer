@@ -10,6 +10,7 @@ import java.util.Map;
 public final class Stats {
     public static long placedTotal;
     public static int remaining, held, wrong, stuck, unsolvable;
+    public static boolean lagging;
     public static final Map<Item, Integer> missing = new LinkedHashMap<>();
     private static final ArrayDeque<Long> recent = new ArrayDeque<>();
 
