@@ -14,7 +14,8 @@
   "environment": "*",
   "entrypoints": {
     "main": ["dev.steelaspect.cytraprinter.CytraPrinter"],
-    "client": ["dev.steelaspect.cytraprinter.client.CytraPrinterClient"]
+    "client": ["dev.steelaspect.cytraprinter.client.CytraPrinterClient"],
+    "modmenu": ["dev.steelaspect.cytraprinter.client.ModMenuIntegration"]
   },
   "mixins": [
     "cytraprinter.mixins.json",

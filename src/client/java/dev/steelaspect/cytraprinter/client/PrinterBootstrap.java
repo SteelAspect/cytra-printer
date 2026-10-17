@@ -16,6 +16,10 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
 /** Everything that needs Litematica and MaLiLib; only loaded when both are installed. */
 final class PrinterBootstrap {
+    static final net.minecraft.client.KeyMapping TOGGLE = new net.minecraft.client.KeyMapping("key.cytraprinter.toggle",
+            com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM, com.mojang.blaze3d.platform.InputConstants.UNKNOWN.getValue(),
+            net.minecraft.client.KeyMapping.Category.register(net.minecraft.resources.Identifier.fromNamespaceAndPath(CytraPrinter.MOD_ID, "main")));
+
     private PrinterBootstrap() {
     }
 
@@ -26,6 +30,17 @@ final class PrinterBootstrap {
             Registry.CONFIG_SCREEN.registerConfigScreenFactory(new ModInfo(CytraPrinter.MOD_ID, CytraPrinter.MOD_NAME, GuiConfigs::new));
             InputEventHandler.getKeybindManager().registerKeybindProvider(InputHandler.INSTANCE);
             RenderEventHandler.getInstance().registerGameOverlayRenderer(HudRenderer.INSTANCE);
+        });
+        // A normal Minecraft key too, so the toggle shows in Controls and Alloy Hub's key list (unbound by default).
+        net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(TOGGLE);
+        ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+            while (TOGGLE.consumeClick()) {
+                Configs.PRINTING.toggleBooleanValue();
+                if (mc.player != null) {
+                    mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                            "Printing " + (Configs.PRINTING.getBooleanValue() ? "ON" : "OFF")), true);
+                }
+            }
         });
         ClientTickEvents.END_CLIENT_TICK.register(Printer::tick);
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> Printer.reset());

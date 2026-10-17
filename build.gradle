@@ -17,6 +17,7 @@ repositories {
         }
         filter { includeGroup 'maven.modrinth' }
     }
+    maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases/' }
 }
 
 // src/main is the common + server part (the optional placement helper) and is all a dedicated server loads.
@@ -40,6 +41,8 @@ dependencies {
     // Client only at runtime; the jar never requires them on a server.
     modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
     modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
+    // Optional: Mod Menu's config button opens the printer settings.
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 }
 
 // MaLiLib ships conditional-mixin as a jar-in-jar. Loom doesn't unpack nested jars of Maven mods for

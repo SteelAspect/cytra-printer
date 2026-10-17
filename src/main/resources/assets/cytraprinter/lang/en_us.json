@@ -1,4 +1,6 @@
 {
+  "key.cytraprinter.toggle": "Toggle printing",
+  "key.category.cytraprinter.main": "Alloy Printer",
   "cytraprinter.config.name.printing": "Printing",
   "cytraprinter.config.prettyName.printing": "Printing",
   "cytraprinter.config.comment.printing": "Turns the printer on or off. Bind a key to toggle it in the Hotkeys tab.",
