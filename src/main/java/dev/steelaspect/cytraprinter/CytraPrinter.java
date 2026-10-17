@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
  */
 public class CytraPrinter implements ModInitializer {
     public static final String MOD_ID = "cytraprinter";
-    public static final String MOD_NAME = "Cytra Printer";
+    public static final String MOD_NAME = "Alloy Printer";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_NAME);
 
     @Override

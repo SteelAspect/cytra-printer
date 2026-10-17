@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "cytraprinter-test",
   "version": "1.0.0",
-  "name": "Cytra Printer (client game tests)",
+  "name": "Alloy Printer (client game tests)",
   "authors": ["steelaspect"],
   "environment": "client",
   "entrypoints": {

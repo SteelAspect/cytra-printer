@@ -16,7 +16,7 @@ public class CytraPrinterClient implements ClientModInitializer {
         if (loader.isModLoaded("litematica") && loader.isModLoaded("malilib")) {
             PrinterBootstrap.init();
         } else {
-            CytraPrinter.LOGGER.warn("Litematica or MaLiLib is missing; only the server helper part of Cytra Printer is active");
+            CytraPrinter.LOGGER.warn("Litematica or MaLiLib is missing; only the server helper part of Alloy Printer is active");
         }
     }
 }

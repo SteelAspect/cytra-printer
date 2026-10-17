@@ -32,7 +32,7 @@ final class Restock {
         try {
             h.invoke(stacks);
         } catch (Throwable t) {
-            CytraPrinter.LOGGER.warn("Cytra Container restock failed, turning it off for this session", t);
+            CytraPrinter.LOGGER.warn("Alloy Container restock failed, turning it off for this session", t);
             hook = null;
         }
     }
@@ -45,7 +45,7 @@ final class Restock {
             Class<?> c = Class.forName("dev.steelaspect.containerautofill.takeitout.TakeItOutFeatures");
             hook = MethodHandles.publicLookup().findStatic(c, "onPrinterMissing", MethodType.methodType(void.class, List.class));
         } catch (ReflectiveOperationException | LinkageError e) {
-            CytraPrinter.LOGGER.info("Cytra Container is installed but has no printer hook; restocking is off");
+            CytraPrinter.LOGGER.info("Alloy Container is installed but has no printer hook; restocking is off");
         }
         return hook;
     }

@@ -1,4 +1,4 @@
-# Cytra Printer
+# Alloy Printer
 
 A fast Litematica printer for Fabric 1.21.11 that doesn't place blocks wrong.
 
@@ -36,7 +36,7 @@ can't place exactly from your position.
 
 ## Restocking
 
-With Cytra Container installed (and its "printer pulls" setting on), missing blocks are pulled from shulker boxes
+With Alloy Container installed (and its "printer pulls" setting on), missing blocks are pulled from shulker boxes
 in your inventory or linked storage automatically.
 
 ## Settings

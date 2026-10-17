@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "cytraprinter",
   "version": "${version}",
-  "name": "Cytra Printer",
+  "name": "Alloy Printer",
   "description": "Fast Litematica printer that simulates every placement first, so blocks go down with the right rotation or not at all. Put the same jar on the server for exact rotations on everything.",
   "authors": ["steelaspect"],
   "contact": {
