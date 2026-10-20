@@ -18,6 +18,10 @@ repositories {
         filter { includeGroup 'maven.modrinth' }
     }
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases/' }
+    // Alloy UI (theme + widget toolkit): ./gradlew publishToMavenLocal in ../alloy-ui
+    mavenLocal {
+        content { includeModule 'dev.steelaspect', 'alloy-ui' }
+    }
 }
 
 // src/main is the common + server part (the optional placement helper) and is all a dedicated server loads.
@@ -43,6 +47,17 @@ dependencies {
     modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
     // Optional: Mod Menu's config button opens the printer settings.
     modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+    // Nocturne settings screen; bundled jar-in-jar.
+    modImplementation "dev.steelaspect:alloy-ui:${project.alloyui_version}"
+    include "dev.steelaspect:alloy-ui:${project.alloyui_version}"
+
+    // Optional Alloy Hub page. Compile-only; only loaded when the Hub is installed.
+    modCompileOnly fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
+    // -PwithHub: dev runs/tests with Alloy Hub installed
+    if (project.hasProperty('withHub')) {
+        modLocalRuntime fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
+    }
 }
 
 // MaLiLib ships conditional-mixin as a jar-in-jar. Loom doesn't unpack nested jars of Maven mods for

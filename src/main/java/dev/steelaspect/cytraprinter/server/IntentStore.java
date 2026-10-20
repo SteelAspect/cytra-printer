@@ -48,6 +48,15 @@ public final class IntentStore {
         INTENTS.remove(player.getUUID());
     }
 
+    public static void clear() {
+        INTENTS.clear();
+    }
+
+    /** Players with pending intents (Alloy Hub server status). */
+    public static int activePlayers() {
+        return INTENTS.size();
+    }
+
     public static void tick() {
         ticks++;
         if (ticks % 20 != 0) return;

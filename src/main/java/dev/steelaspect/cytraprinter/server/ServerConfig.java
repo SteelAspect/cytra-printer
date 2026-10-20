@@ -22,8 +22,25 @@ public final class ServerConfig {
         return enabled;
     }
 
+    /** Turns the helper on or off and saves it (Alloy Hub's Server tab). Online players are told by the caller. */
+    public static void setEnabled(boolean value) {
+        enabled = value;
+        JsonObject root = new JsonObject();
+        root.addProperty("enabled", value);
+        try {
+            Files.createDirectories(file().getParent());
+            Files.writeString(file(), GSON.toJson(root));
+        } catch (IOException e) {
+            CytraPrinter.LOGGER.warn("Could not save {}", file(), e);
+        }
+    }
+
+    private static Path file() {
+        return FabricLoader.getInstance().getConfigDir().resolve(CytraPrinter.MOD_ID + "-server.json");
+    }
+
     public static void load() {
-        Path file = FabricLoader.getInstance().getConfigDir().resolve(CytraPrinter.MOD_ID + "-server.json");
+        Path file = file();
         try {
             if (Files.isRegularFile(file)) {
                 JsonObject root = GSON.fromJson(Files.readString(file), JsonObject.class);

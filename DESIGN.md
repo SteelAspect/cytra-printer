@@ -43,7 +43,29 @@ A fast Litematica printer that never places a block wrong. Survival and creative
 - Env vars: `CYTRA_TEST_BLOCKS=bell,observer` limits the blocks, `CYTRA_TEST_ONLY=extras` runs only the extras test
   (about 30 s), and `CYTRA_PRINTER_DEBUG=1` logs spots the printer can't solve.
 
+## Settings UI (1.2.0)
+Follows the workspace rule: settings live in the mod's own Nocturne screen and on an Alloy Hub page, both built from
+the same config.
+- **Source of truth stays MaLiLib** (`Configs`, `config/cytraprinter.json`). There is no migration and old configs keep
+  working. Hotkeys stay MaLiLib hotkeys because they support combos and work in-game without the Hub.
+- **One option list.** `PrinterOptions` turns each `Configs` group into rows. Booleans become toggles, integers
+  steppers, doubles sliders, strings text fields, and string lists a comma-separated text field (`a, b, #tag`).
+  The own screen and the Hub page both iterate the same groups, so a new option shows up in both.
+- **Own screen** `PrinterSettingsScreen` (Alloy UI `AlloyScreen`, jar-in-jar alloy-ui 1.3.0). It has four tabs:
+  Printer (incl. HUD), Accuracy, Blocks, Extras. The server helper status sits on the Printer tab. The footer has
+  *Hotkeys* (opens the MaLiLib screen on its Hotkeys tab) and *Done*. Mod Menu, MaLiLib's config menu and the
+  Open Settings hotkey all open this screen. The old `GuiConfigs` is only used for hotkeys.
+- **Hub page** `HubPlugin` (entrypoint `cytra-hub`, compile-only against `libs/alloy-hub-*.jar`):
+  - Category Building, with Printing as the master switch.
+  - Main key: Toggle printing.
+  - Status: printing, server helper, rate, remaining, missing items, problems.
+  - Settings: the same groups as sections.
+  - Actions: open settings, hotkeys, exclude looked-at block.
+  - A HUD element for the HUD Layout editor.
+  - Server tab (ops): helper on/off, saved to `cytraprinter-server.json` and re-announced to online players.
+  - Without Litematica/MaLiLib the page only shows that they are missing.
+- Player messages (printing on/off, exclude, death) are translatable.
+
 ## Open ideas
-- Settings screen in Alloy UI / Nocturne, plus an Alloy Hub plugin page built from the same config.
 - Auto-craft missing items through Alloy Mass Craft (optional hook, like Restock).
 - A server GameTest for the helper.

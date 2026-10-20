@@ -58,8 +58,13 @@ in your inventory or linked storage automatically.
 
 ## Settings
 
-Open from Mod Menu / MaLiLib's config menu, or bind **Open Settings** in the Hotkeys tab. Bind **Printing** to a key
-to toggle the printer. All hotkeys are unbound by default.
+Open from Mod Menu, MaLiLib's config menu, Alloy Hub, or bind **Open Settings** in the hotkeys. The settings screen has
+Printer, Accuracy, Blocks and Extras tabs; block lists are typed as `stone, #minecraft:logs`. **Hotkeys** in its footer
+opens the MaLiLib hotkey editor. Bind **Printing** (or **Toggle printing** in Controls) to a key to toggle the printer.
+All hotkeys are unbound by default.
+
+With Alloy Hub installed, Alloy Printer has a Hub page: printing on/off, status (server helper, progress, missing items),
+the same settings, quick actions and the HUD position. Ops get a Server tab to turn the placement helper on or off.
 
 ## Building
 

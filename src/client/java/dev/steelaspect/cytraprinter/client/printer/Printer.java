@@ -143,7 +143,7 @@ public final class Printer {
         LocalPlayer player = mc.player;
         if (Configs.PRINTING.getBooleanValue() && player != null && Configs.DISABLE_ON_DEATH.getBooleanValue() && player.isDeadOrDying()) {
             Configs.PRINTING.setBooleanValue(false);
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Printing OFF (you died)"), false);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("cytraprinter.msg.off_death"), false);
         }
         if (!Configs.PRINTING.getBooleanValue() || player == null || mc.level == null || mc.gameMode == null || mc.getConnection() == null) {
             stopMining(mc);
@@ -255,7 +255,7 @@ public final class Printer {
             }
         }
         if (found == null) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Look at a block to exclude it"), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("cytraprinter.msg.exclude_none"), true);
             return;
         }
         String id = IdFilter.idOf(found);
@@ -265,8 +265,8 @@ public final class Printer {
         if (!removed) list.add(id);
         Configs.EXCLUDED_BLOCKS.setStrings(list);
         Configs.INSTANCE.save();
-        player.displayClientMessage(net.minecraft.network.chat.Component.literal(
-                (removed ? "Printer will place " : "Printer skips ") + found.getName().getString()), true);
+        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                removed ? "cytraprinter.msg.included" : "cytraprinter.msg.excluded", found.getName()), true);
     }
 
     // ---------------------------------------------------------------- scanning

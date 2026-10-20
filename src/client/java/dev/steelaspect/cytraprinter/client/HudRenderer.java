@@ -17,6 +17,8 @@ import java.util.Map;
 public final class HudRenderer implements IRenderer {
     public static final HudRenderer INSTANCE = new HudRenderer();
     private static final String P = CytraPrinter.MOD_ID + ".hud.";
+    /** Size of the box last drawn, for the Alloy Hub HUD layout editor. */
+    public static int lastWidth = 150, lastHeight = 20;
 
     private HudRenderer() {
     }
@@ -53,6 +55,8 @@ public final class HudRenderer implements IRenderer {
         int x = Configs.HUD_X.getIntegerValue(), y = Configs.HUD_Y.getIntegerValue();
         int width = 0;
         for (String s : lines) width = Math.max(width, mc.font.width(s));
+        lastWidth = width + 4;
+        lastHeight = lines.size() * 10 + 2;
         ctx.fill(x - 2, y - 2, x + width + 2, y + lines.size() * 10, 0x90000000);
         for (int i = 0; i < lines.size(); i++) ctx.drawString(mc.font, lines.get(i), x, y + i * 10, colors.get(i));
     }

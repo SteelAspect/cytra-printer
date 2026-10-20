@@ -1,6 +1,9 @@
 package dev.steelaspect.cytraprinter.test;
 
+import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.ServerHelper;
+import dev.steelaspect.cytraprinter.client.gui.PrinterOptions;
+import dev.steelaspect.cytraprinter.client.gui.PrinterSettingsScreen;
 import dev.steelaspect.cytraprinter.client.config.Configs;
 import dev.steelaspect.cytraprinter.client.printer.Stats;
 import dev.steelaspect.cytraprinter.state.StateRules;
@@ -87,6 +90,13 @@ public class PrinterClientGameTest implements FabricClientGameTest {
                 Configs.SHOW_HUD.setBooleanValue(true);
                 Configs.HOTBAR_SLOTS.setValueFromString("7,8,9");
             });
+
+            // Settings screen, Hub-style option rows and the server helper switch (CYTRA_TEST_ONLY=settings: only this).
+            settings(context, world);
+            if ("settings".equals(System.getenv("CYTRA_TEST_ONLY"))) {
+                if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
+                return;
+            }
 
             // CYTRA_TEST_ONLY=extras runs just the extras (exclude, strip, composter, coral, bedrock, observers).
             if ("extras".equals(System.getenv("CYTRA_TEST_ONLY"))) {
@@ -599,6 +609,41 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             Configs.BREAK_BEDROCK.setBooleanValue(false);
             DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic);
         });
+    }
+
+    private void settings(ClientGameTestContext context, TestSingleplayerContext world) {
+        for (String tab : List.of("printer", "accuracy", "blocks", "extras")) {
+            context.runOnClient(client -> client.setScreen(PrinterSettingsScreen.onTab(null, tab)));
+            context.waitTicks(5);
+            boolean open = context.computeOnClient(client -> client.screen instanceof PrinterSettingsScreen);
+            check("settings screen " + tab, open, "screen not open");
+            LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("settings-" + tab)));
+        }
+        context.runOnClient(client -> client.setScreen(PrinterSettingsScreen.onTab(null, "printer")));
+        context.runOnClient(client -> client.setScreen(null));
+
+        // Every option has a row, and list rows round-trip through the comma text.
+        int missing = context.computeOnClient(client -> {
+            int n = 0;
+            for (PrinterOptions.Group g : PrinterOptions.Group.values()) {
+                for (var option : g.options) if (PrinterOptions.rowFor(option) == null) n++;
+            }
+            return n;
+        });
+        check("settings rows for every option", missing == 0, missing + " options without a row");
+        List<String> split = PrinterOptions.splitList(" stone, #minecraft:logs ,, stone,glass ");
+        check("list text split", split.equals(List.of("stone", "#minecraft:logs", "glass")), split.toString());
+        check("list text join", PrinterOptions.joinList(split).equals("stone, #minecraft:logs, glass"), PrinterOptions.joinList(split));
+
+        // The Hub's Server tab switch: off reaches the client right away, on brings it back.
+        world.getServer().runOnServer(server -> CytraPrinter.setHelperEnabled(server, false));
+        context.waitTicks(10);
+        String off = context.computeOnClient(client -> ServerHelper.statusKey());
+        check("helper switched off", "off_server".equals(off), off);
+        world.getServer().runOnServer(server -> CytraPrinter.setHelperEnabled(server, true));
+        context.waitTicks(10);
+        String on = context.computeOnClient(client -> ServerHelper.statusKey());
+        check("helper switched on", "on".equals(on), on);
     }
 
     private void check(String label, boolean ok, String detail) {
