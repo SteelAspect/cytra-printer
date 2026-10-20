@@ -1,0 +1,10 @@
+# Alloy Printer progress log
+# [YYYY-MM-DD HH:MM] TYPE | what | next | blockers
+
+[2026-10-14 07:10] RELEASE 1.0.0 | Cytra Printer: simulation-checked Litematica printer + optional server helper; full client game test 440 states pass (helper, vanilla, survival); pushed to private repo, not released | in-game test | none
+[2026-10-14 12:00] FIX | head-yaw aware vanilla placement, teleport/item-use rotation sync, server helper hardening | - | none
+[2026-10-17 17:24] BUILD 1.0.1 | renamed to Alloy Printer, Alloy logo (id stays cytraprinter) | - | none
+[2026-10-17 18:08] BUILD 1.0.2 | Mod Menu settings button, Toggle printing key in Controls | - | none
+[2026-10-17 21:01] RELEASE 1.1.0 | excluded/protected block lists, strip logs, composter levels, coral, bedrock breaking (off by default), safe observers, pause on lag, disable on death; extras game test pass; released via cytra-releases, in Hub 0.5.2 changelog | user survival test of Extras | none
+[2026-10-19 13:38] AUDIT | audit + cleanup: removed old 1.0.x jars and leftover run/ folder; added PROGRESS.txt, DESIGN.md, LICENSE | Alloy UI/Nocturne settings + Hub page, Mass Craft auto-craft idea, server helper GameTest | none
+[2026-10-20 10:18] START | dev branch for 1.2.0; PROGRESS.txt now tracked | Nocturne settings screen + Alloy Hub page | none

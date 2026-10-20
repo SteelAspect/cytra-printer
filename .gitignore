@@ -20,12 +20,10 @@ out/
 bin/
 .vscode/
 
-# Built jars outside build/
+# Built jars outside build/ (libs/ holds compile-only API jars)
 *.jar
 !gradle/wrapper/gradle-wrapper.jar
-
-# Local progress log
-PROGRESS.txt
+!libs/*.jar
 
 # Secrets: never commit webhooks, tokens or local env files
 *webhook*
