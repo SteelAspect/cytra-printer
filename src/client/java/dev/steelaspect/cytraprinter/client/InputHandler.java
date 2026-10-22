@@ -43,6 +43,14 @@ public final class InputHandler implements IKeybindProvider, IHotkeyCallback {
             net.minecraft.client.Minecraft.getInstance().setScreen(new PrinterSettingsScreen(null));
             return true;
         }
+        if (key == Configs.NEXT_SKIPPED.getKeybind()) {
+            SkippedActions.next(net.minecraft.client.Minecraft.getInstance());
+            return true;
+        }
+        if (key == Configs.RETRY_SKIPPED.getKeybind()) {
+            SkippedActions.retry(net.minecraft.client.Minecraft.getInstance());
+            return true;
+        }
         if (key == Configs.EXCLUDE_LOOKED_AT.getKeybind()) {
             dev.steelaspect.cytraprinter.client.printer.Printer.toggleExcludeLookedAt(net.minecraft.client.Minecraft.getInstance());
             return true;

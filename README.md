@@ -50,6 +50,9 @@ can't place exactly from your position.
   wall/fence/wire that would change shape while something behind them would react; pistons wait for observers
   aimed at them.
 - **Pause on lag** and **turn off on death**.
+- **Skipped blocks**: spots the printer leaves alone stay outlined through walls, even after you walk away:
+  red = wrong block it won't fix, orange = can't place it exactly from where you stood, yellow = gave up for now.
+  **Next Skipped Block** points you to the nearest one; **Retry Skipped Blocks** makes the printer try them again.
 
 ## Restocking
 

@@ -5,6 +5,7 @@ import dev.steelaspect.cytraprinter.client.ServerHelper;
 import dev.steelaspect.cytraprinter.client.gui.PrinterOptions;
 import dev.steelaspect.cytraprinter.client.gui.PrinterSettingsScreen;
 import dev.steelaspect.cytraprinter.client.config.Configs;
+import dev.steelaspect.cytraprinter.client.printer.Skipped;
 import dev.steelaspect.cytraprinter.client.printer.Stats;
 import dev.steelaspect.cytraprinter.state.StateRules;
 import fi.dy.masa.litematica.data.DataManager;
@@ -93,7 +94,9 @@ public class PrinterClientGameTest implements FabricClientGameTest {
 
             // Settings screen, Hub-style option rows and the server helper switch (CYTRA_TEST_ONLY=settings: only this).
             settings(context, world);
-            if ("settings".equals(System.getenv("CYTRA_TEST_ONLY"))) {
+            // Skipped-block outlines, next and retry (CYTRA_TEST_ONLY=skipped: only this and the settings).
+            skipped(context, world, origin.offset(-12, 0, 0));
+            if ("settings".equals(System.getenv("CYTRA_TEST_ONLY")) || "skipped".equals(System.getenv("CYTRA_TEST_ONLY"))) {
                 if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
                 return;
             }
@@ -644,6 +647,77 @@ public class PrinterClientGameTest implements FabricClientGameTest {
         context.waitTicks(10);
         String on = context.computeOnClient(client -> ServerHelper.statusKey());
         check("helper switched on", "on".equals(on), on);
+    }
+
+    private void skipped(ClientGameTestContext context, TestSingleplayerContext world, BlockPos o) {
+        BlockPos max = o.offset(6, 2, 6);
+        BlockPos wrong = o.offset(2, 1, 2), place = o.offset(4, 1, 4);
+        int f = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, p.getY() == o.getY() ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), f);
+            level.setBlock(wrong, Blocks.DIRT.defaultBlockState(), f);
+            level.setBlock(place, Blocks.DIRT.defaultBlockState(), f);
+        });
+        LitematicaSchematic schematic = world.getServer().computeOnServer(server -> capture(server, o, max, "skipped"));
+        world.getServer().runOnServer(server -> {
+            clear(server, o, max);
+            // A protected wrong block: the printer must leave it and outline it.
+            server.overworld().setBlock(wrong, Blocks.EMERALD_BLOCK.defaultBlockState(), 3);
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            p.teleportTo(server.overworld(), o.getX() + 3.5, o.getY() + 3, o.getZ() + 3.5, Set.of(), 0f, 60f, true);
+        });
+        world.getServer().runCommand("gamemode creative @a");
+        context.runOnClient(client -> {
+            Configs.PROTECTED_BLOCKS.setStrings(List.of("emerald_block"));
+            Configs.SHOW_SKIPPED.setBooleanValue(true);
+            Skipped.clear();
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, o, "printer-skipped", true, true), false);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+        context.waitTicks(40);
+
+        String kind = context.computeOnClient(client -> {
+            Skipped.Spot s = Skipped.near(client.player.getEyePosition(), 64).stream().filter(x -> x.pos().equals(wrong)).findFirst().orElse(null);
+            return s == null ? "none" : s.kind().name();
+        });
+        check("skipped: protected wrong block outlined", "WRONG".equals(kind), kind);
+        int size = context.computeOnClient(client -> Skipped.size());
+        check("skipped: placed block not listed", size == 1, size + " spots");
+        BlockPos next = context.computeOnClient(client -> {
+            Skipped.Spot s = Skipped.next(client.player.getEyePosition());
+            return s == null ? null : s.pos();
+        });
+        check("skipped: next finds it", wrong.equals(next), String.valueOf(next));
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+        world.getServer().runOnServer(server -> server.getPlayerList().getPlayers().get(0)
+                .teleportTo(server.overworld(), o.getX() + 2.5, o.getY() + 3, o.getZ() + 6.5, Set.of(), 180f, 35f, true));
+        context.waitTicks(10);
+        LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("skipped-outline")));
+
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+        context.runOnClient(client -> dev.steelaspect.cytraprinter.client.SkippedActions.retry(client));
+        int afterRetry = context.computeOnClient(client -> Skipped.size());
+        check("skipped: retry clears", afterRetry == 0, afterRetry + " spots");
+        context.waitTicks(10);
+        int again = context.computeOnClient(client -> Skipped.size());
+        check("skipped: still wrong after retry, outlined again", again == 1, again + " spots");
+
+        world.getServer().runOnServer(server -> server.overworld().setBlock(wrong, Blocks.DIRT.defaultBlockState(), 3));
+        context.waitTicks(15);
+        int fixed = context.computeOnClient(client -> Skipped.size());
+        check("skipped: fixed by hand, forgotten", fixed == 0, fixed + " spots");
+
+        context.runOnClient(client -> {
+            Configs.PRINTING.setBooleanValue(false);
+            Configs.PROTECTED_BLOCKS.setStrings(List.of());
+            DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic);
+        });
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
+        });
     }
 
     private void check(String label, boolean ok, String detail) {

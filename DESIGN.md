@@ -66,6 +66,22 @@ the same config.
   - Without Litematica/MaLiLib the page only shows that they are missing.
 - Player messages (printing on/off, exclude, death) are translatable.
 
+## Skipped blocks (1.3.0)
+- `printer/Skipped` remembers spots the printer left alone, keyed by position. It keeps them after the player walks
+  away so they can be found in a big build. There are three kinds:
+  - WRONG: a wrong block it won't break (fixing off, protected, container, unbreakable).
+  - UNSOLVABLE: no exact click from where the player stood.
+  - STUCK: parked after too many retries.
+- The scan updates spots in reach every printer tick.
+- Spots out of reach are dropped every 10 s once they match the schematic.
+- All spots are dropped on Retry, a world change, or a disconnect. The list is capped at 4096.
+- `SkippedRenderer` (MaLiLib world-last renderer, the same line pipeline as Alloy Container) outlines them through
+  walls within *Outline Range* (default 64): red = wrong, orange = can't place, yellow = gave up.
+  The spot picked by *Next Skipped Block* pulses.
+- Hotkeys *Next Skipped Block* and *Retry Skipped Blocks* are also actions on the Hub page.
+  Next turns the view only while printing is off, because the printer owns the view otherwise.
+  The Hub status shows the counts.
+
 ## Open ideas
 - Auto-craft missing items through Alloy Mass Craft (optional hook, like Restock).
 - A server GameTest for the helper.

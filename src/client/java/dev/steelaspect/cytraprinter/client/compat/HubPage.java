@@ -7,11 +7,13 @@ import dev.steelaspect.cytrahub.api.client.SettingsBuilder;
 import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.HudRenderer;
 import dev.steelaspect.cytraprinter.client.ServerHelper;
+import dev.steelaspect.cytraprinter.client.SkippedActions;
 import dev.steelaspect.cytraprinter.client.config.Configs;
 import dev.steelaspect.cytraprinter.client.gui.GuiConfigs;
 import dev.steelaspect.cytraprinter.client.gui.PrinterOptions;
 import dev.steelaspect.cytraprinter.client.gui.PrinterSettingsScreen;
 import dev.steelaspect.cytraprinter.client.printer.Printer;
+import dev.steelaspect.cytraprinter.client.printer.Skipped;
 import dev.steelaspect.cytraprinter.client.printer.Stats;
 import fi.dy.masa.malilib.config.IConfigBase;
 import fi.dy.masa.malilib.config.options.ConfigBoolean;
@@ -58,7 +60,12 @@ final class HubPage {
                                 () -> Stats.missing.isEmpty() ? StatusLevel.NONE : StatusLevel.WARN)
                         .row(Component.translatable(P + "problems"),
                                 () -> Component.translatable(P + "problems.value", Stats.wrong, Stats.unsolvable, Stats.stuck),
-                                () -> Stats.wrong + Stats.unsolvable + Stats.stuck > 0 ? StatusLevel.WARN : StatusLevel.NONE))
+                                () -> Stats.wrong + Stats.unsolvable + Stats.stuck > 0 ? StatusLevel.WARN : StatusLevel.NONE)
+                        .row(Component.translatable(P + "skipped"),
+                                () -> Skipped.size() == 0 ? Component.translatable(P + "none")
+                                        : Component.translatable(P + "skipped.value", Skipped.count(Skipped.Kind.WRONG),
+                                                Skipped.count(Skipped.Kind.UNSOLVABLE), Skipped.count(Skipped.Kind.STUCK)),
+                                () -> Skipped.size() == 0 ? StatusLevel.NONE : StatusLevel.WARN))
                 .settings(s -> {
                     for (PrinterOptions.Group g : PrinterOptions.Group.values()) {
                         s.section(g.title());
@@ -71,6 +78,19 @@ final class HubPage {
                             () -> Minecraft.getInstance().setScreen(new PrinterSettingsScreen(Minecraft.getInstance().screen)));
                     a.action("hotkeys", Component.translatable(CytraPrinter.MOD_ID + ".gui.hotkeys"),
                             () -> GuiBase.openGui(GuiConfigs.forHotkeys(Minecraft.getInstance().screen)));
+                    a.action("next_skipped", Component.translatable(CytraPrinter.MOD_ID + ".config.prettyName.nextSkipped"), () -> {
+                        Minecraft mc = Minecraft.getInstance();
+                        if (mc.player == null) {
+                            hub.toast(HubToast.ERROR, Component.translatable(P + "not_in_world"));
+                            return;
+                        }
+                        mc.setScreen(null);
+                        SkippedActions.next(mc);
+                    });
+                    a.action("retry_skipped", Component.translatable(CytraPrinter.MOD_ID + ".config.prettyName.retrySkipped"), () -> {
+                        SkippedActions.retry(Minecraft.getInstance());
+                        hub.toast(HubToast.SUCCESS, Component.translatable(P + "retried"));
+                    });
                     a.action("exclude", Component.translatable(CytraPrinter.MOD_ID + ".config.prettyName.excludeLookedAt"), () -> {
                         Minecraft mc = Minecraft.getInstance();
                         if (mc.player == null) {

@@ -30,6 +30,7 @@ final class PrinterBootstrap {
             Registry.CONFIG_SCREEN.registerConfigScreenFactory(new ModInfo(CytraPrinter.MOD_ID, CytraPrinter.MOD_NAME, SettingsRedirect::new));
             InputEventHandler.getKeybindManager().registerKeybindProvider(InputHandler.INSTANCE);
             RenderEventHandler.getInstance().registerGameOverlayRenderer(HudRenderer.INSTANCE);
+            RenderEventHandler.getInstance().registerWorldLastRenderer(SkippedRenderer.INSTANCE);
         });
         // A normal Minecraft key too, so the toggle shows in Controls and Alloy Hub's key list (unbound by default).
         net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper.registerKeyBinding(TOGGLE);

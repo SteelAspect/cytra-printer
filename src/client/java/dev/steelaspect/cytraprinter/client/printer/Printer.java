@@ -127,6 +127,16 @@ public final class Printer {
         mining = null;
         BedrockBreaker.reset();
         Stats.reset();
+        Skipped.clear();
+    }
+
+    /** Retry: forgets parked and failed spots, so the printer tries everything in reach again right away. */
+    public static void retrySkipped() {
+        waitUntil.clear();
+        attempts.clear();
+        stuckUntil.clear();
+        lastAfter.clear();
+        Skipped.clear();
     }
 
     public static boolean wasPlacedByPrinter(BlockPos pos) {
@@ -151,6 +161,7 @@ public final class Printer {
             Look.unlock(mc);
             return;
         }
+        Skipped.checkLevel(mc.level);
         WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
         if (schematic == null || player.isSpectator()) {
             Look.unlock(mc);
@@ -161,7 +172,10 @@ public final class Printer {
         if (mc.screen != null || player.isUsingItem()) return;
         Stats.lagging = Configs.PAUSE_ON_LAG.getBooleanValue() && System.currentTimeMillis() - ClientHooks.lastServerTimeMillis > LAG_MILLIS;
         if (Stats.lagging) return;
-        if (ticks % 200 == 0) prune();
+        if (ticks % 200 == 0) {
+            prune();
+            Skipped.prune(mc.level, schematic);
+        }
         if (delay > 0) {
             delay--;
             return;
@@ -288,12 +302,27 @@ public final class Printer {
                     m.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
                     if (!level.isInsideBuildHeight(m.getY()) || !player.isWithinBlockInteractionRange(m, extra)) continue;
                     if (!range.isPositionWithinRange(m)) continue;
-                    Job job = classify(mc, schematic, m.immutable(), eye);
-                    if (job == null) continue;
+                    BlockPos pos = m.immutable();
+                    int wrongBefore = Stats.wrong;
+                    Job job = classify(mc, schematic, pos, eye);
+                    boolean wrong = Stats.wrong > wrongBefore;
+                    if (job == null) {
+                        // Wrong and not turned into a job: the printer won't fix it.
+                        if (wrong) Skipped.mark(pos, Skipped.Kind.WRONG);
+                        else Skipped.forget(pos);
+                        continue;
+                    }
                     long key = job.pos().asLong();
                     if (stuckUntil.getOrDefault(key, 0L) > ticks) {
                         Stats.stuck++;
+                        Skipped.mark(pos, Skipped.Kind.STUCK);
                         continue;
+                    }
+                    if (job.kind() == Kind.BREAK && !canBreak(level, player, pos, job.world())) {
+                        Skipped.mark(pos, Skipped.Kind.WRONG);
+                    } else if (waitUntil.getOrDefault(key, 0L) <= ticks) {
+                        // About to be tried again; place() marks it again if it still can't be placed.
+                        Skipped.forget(pos);
                     }
                     if (waitUntil.getOrDefault(key, 0L) > ticks) continue;
                     jobs.add(job);
@@ -534,6 +563,7 @@ public final class Printer {
             if (plan == null) {
                 if (DEBUG) debugUnsolvable(level, pos, world, target);
                 Stats.unsolvable++;
+                Skipped.mark(pos, Skipped.Kind.UNSOLVABLE);
                 waitUntil.put(pos.asLong(), ticks + 20);
                 continue;
             }

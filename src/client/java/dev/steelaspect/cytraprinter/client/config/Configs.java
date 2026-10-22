@@ -100,15 +100,19 @@ public final class Configs implements IConfigHandler {
     public static final ConfigBooleanHotkeyed SHOW_HUD = new ConfigBooleanHotkeyed("showHud", true, "").apply(PREFIX);
     public static final ConfigInteger HUD_X = new ConfigInteger("hudX", 4, 0, 4000).apply(PREFIX);
     public static final ConfigInteger HUD_Y = new ConfigInteger("hudY", 4, 0, 4000).apply(PREFIX);
+    public static final ConfigBoolean SHOW_SKIPPED = new ConfigBoolean("showSkipped", true).apply(PREFIX);
+    public static final ConfigInteger SKIPPED_RANGE = new ConfigInteger("skippedRange", 64, 8, 256).apply(PREFIX);
 
-    public static final ImmutableList<IConfigBase> HUD = ImmutableList.of(SHOW_HUD, HUD_X, HUD_Y);
+    public static final ImmutableList<IConfigBase> HUD = ImmutableList.of(SHOW_HUD, HUD_X, HUD_Y, SHOW_SKIPPED, SKIPPED_RANGE);
 
     public static final ImmutableList<ConfigBooleanHotkeyed> TOGGLES = ImmutableList.of(PRINTING, SHOW_HUD);
 
     // --- Hotkeys (unbound by default) ---
     public static final ConfigHotkey OPEN_GUI = new ConfigHotkey("openGui", "").apply(PREFIX);
     public static final ConfigHotkey EXCLUDE_LOOKED_AT = new ConfigHotkey("excludeLookedAt", "").apply(PREFIX);
-    public static final List<ConfigHotkey> HOTKEYS = ImmutableList.of(OPEN_GUI, EXCLUDE_LOOKED_AT);
+    public static final ConfigHotkey NEXT_SKIPPED = new ConfigHotkey("nextSkipped", "").apply(PREFIX);
+    public static final ConfigHotkey RETRY_SKIPPED = new ConfigHotkey("retrySkipped", "").apply(PREFIX);
+    public static final List<ConfigHotkey> HOTKEYS = ImmutableList.of(OPEN_GUI, EXCLUDE_LOOKED_AT, NEXT_SKIPPED, RETRY_SKIPPED);
     public static final ImmutableList<IConfigBase> HOTKEY_TAB = ImmutableList.<IConfigBase>builder()
             .addAll(HOTKEYS).addAll(TOGGLES).build();
 
