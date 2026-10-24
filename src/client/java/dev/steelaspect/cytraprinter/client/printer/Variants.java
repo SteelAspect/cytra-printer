@@ -4,7 +4,7 @@ import dev.steelaspect.cytraprinter.client.mixin.AxeItemAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.BlockGetter;
@@ -50,9 +50,9 @@ final class Variants {
         if (deadToAlive != null) return;
         Map<Block, Block> d2a = new HashMap<>(), a2d = new HashMap<>();
         for (Block block : BuiltInRegistries.BLOCK) {
-            Identifier id = BuiltInRegistries.BLOCK.getKey(block);
+            ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
             if (!id.getPath().startsWith("dead_")) continue;
-            Block live = BuiltInRegistries.BLOCK.getValue(id.withPath(id.getPath().substring(5)));
+            Block live = BuiltInRegistries.BLOCK.get(id.withPath(id.getPath().substring(5)));
             if (live == null || live == net.minecraft.world.level.block.Blocks.AIR) continue;
             BlockState s = live.defaultBlockState();
             if (!s.is(BlockTags.CORAL_BLOCKS) && !s.is(BlockTags.CORALS) && !s.is(BlockTags.WALL_CORALS) && !s.is(BlockTags.CORAL_PLANTS)) continue;

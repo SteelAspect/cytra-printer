@@ -14,7 +14,8 @@ import fi.dy.masa.malilib.config.options.ConfigHotkey;
 import fi.dy.masa.malilib.config.options.ConfigInteger;
 import fi.dy.masa.malilib.config.options.ConfigString;
 import fi.dy.masa.malilib.config.options.ConfigStringList;
-import fi.dy.masa.malilib.util.data.json.JsonUtils;
+import fi.dy.masa.malilib.util.JsonUtils;
+import fi.dy.masa.malilib.util.StringUtils;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
@@ -29,15 +30,15 @@ public final class Configs implements IConfigHandler {
     private static final String PREFIX = CytraPrinter.MOD_ID + ".config";
 
     // --- Printer ---
-    public static final ConfigBooleanHotkeyed PRINTING = new ConfigBooleanHotkeyed("printing", false, "").apply(PREFIX);
-    public static final ConfigInteger PLACEMENTS_PER_TICK = new ConfigInteger("placementsPerTick", 8, 1, 64).apply(PREFIX);
-    public static final ConfigInteger TICK_DELAY = new ConfigInteger("tickDelay", 0, 0, 20).apply(PREFIX);
-    public static final ConfigDouble EXTRA_REACH = new ConfigDouble("extraReach", 0.8, 0.0, 0.95).apply(PREFIX);
-    public static final ConfigBoolean USE_SERVER_HELPER = new ConfigBoolean("useServerHelper", true).apply(PREFIX);
-    public static final ConfigString HOTBAR_SLOTS = new ConfigString("hotbarSlots", "7,8,9").apply(PREFIX);
-    public static final ConfigBoolean RESTOCK = new ConfigBoolean("restockFromContainerMod", true).apply(PREFIX);
-    public static final ConfigBoolean PAUSE_ON_LAG = new ConfigBoolean("pauseOnLag", true).apply(PREFIX);
-    public static final ConfigBoolean DISABLE_ON_DEATH = new ConfigBoolean("disableOnDeath", true).apply(PREFIX);
+    public static final ConfigBooleanHotkeyed PRINTING = new ConfigBooleanHotkeyed("printing", false, "", comment("printing"), prettyName("printing"));
+    public static final ConfigInteger PLACEMENTS_PER_TICK = integer("placementsPerTick", 8, 1, 64);
+    public static final ConfigInteger TICK_DELAY = integer("tickDelay", 0, 0, 20);
+    public static final ConfigDouble EXTRA_REACH = decimal("extraReach", 0.8, 0.0, 0.95);
+    public static final ConfigBoolean USE_SERVER_HELPER = new ConfigBoolean("useServerHelper", true, comment("useServerHelper"), prettyName("useServerHelper"));
+    public static final ConfigString HOTBAR_SLOTS = string("hotbarSlots", "7,8,9");
+    public static final ConfigBoolean RESTOCK = new ConfigBoolean("restockFromContainerMod", true, comment("restockFromContainerMod"), prettyName("restockFromContainerMod"));
+    public static final ConfigBoolean PAUSE_ON_LAG = new ConfigBoolean("pauseOnLag", true, comment("pauseOnLag"), prettyName("pauseOnLag"));
+    public static final ConfigBoolean DISABLE_ON_DEATH = new ConfigBoolean("disableOnDeath", true, comment("disableOnDeath"), prettyName("disableOnDeath"));
 
     public static final ImmutableList<IConfigBase> PRINTER = ImmutableList.of(
             PRINTING,
@@ -51,15 +52,15 @@ public final class Configs implements IConfigHandler {
             DISABLE_ON_DEATH);
 
     // --- Accuracy ---
-    public static final ConfigBoolean FIX_WRONG_BLOCKS = new ConfigBoolean("fixWrongBlocks", true).apply(PREFIX);
-    public static final ConfigBoolean CLEAR_EXTRA_BLOCKS = new ConfigBoolean("clearExtraBlocks", false).apply(PREFIX);
-    public static final ConfigBoolean BREAK_CONTAINERS = new ConfigBoolean("breakContainers", false).apply(PREFIX);
-    public static final ConfigBoolean CLICK_FIX_STATES = new ConfigBoolean("clickFixStates", true).apply(PREFIX);
-    public static final ConfigBoolean CLICK_FIX_LEVERS = new ConfigBoolean("clickFixLevers", false).apply(PREFIX);
-    public static final ConfigBoolean SIGN_TEXT = new ConfigBoolean("signText", true).apply(PREFIX);
-    public static final ConfigBoolean SAFE_REDSTONE_ORDER = new ConfigBoolean("safeRedstoneOrder", true).apply(PREFIX);
-    public static final ConfigBoolean SAFE_OBSERVERS = new ConfigBoolean("safeObservers", true).apply(PREFIX);
-    public static final ConfigInteger MAX_RETRIES = new ConfigInteger("maxRetries", 3, 1, 20).apply(PREFIX);
+    public static final ConfigBoolean FIX_WRONG_BLOCKS = new ConfigBoolean("fixWrongBlocks", true, comment("fixWrongBlocks"), prettyName("fixWrongBlocks"));
+    public static final ConfigBoolean CLEAR_EXTRA_BLOCKS = new ConfigBoolean("clearExtraBlocks", false, comment("clearExtraBlocks"), prettyName("clearExtraBlocks"));
+    public static final ConfigBoolean BREAK_CONTAINERS = new ConfigBoolean("breakContainers", false, comment("breakContainers"), prettyName("breakContainers"));
+    public static final ConfigBoolean CLICK_FIX_STATES = new ConfigBoolean("clickFixStates", true, comment("clickFixStates"), prettyName("clickFixStates"));
+    public static final ConfigBoolean CLICK_FIX_LEVERS = new ConfigBoolean("clickFixLevers", false, comment("clickFixLevers"), prettyName("clickFixLevers"));
+    public static final ConfigBoolean SIGN_TEXT = new ConfigBoolean("signText", true, comment("signText"), prettyName("signText"));
+    public static final ConfigBoolean SAFE_REDSTONE_ORDER = new ConfigBoolean("safeRedstoneOrder", true, comment("safeRedstoneOrder"), prettyName("safeRedstoneOrder"));
+    public static final ConfigBoolean SAFE_OBSERVERS = new ConfigBoolean("safeObservers", true, comment("safeObservers"), prettyName("safeObservers"));
+    public static final ConfigInteger MAX_RETRIES = integer("maxRetries", 3, 1, 20);
 
     public static final ImmutableList<IConfigBase> ACCURACY = ImmutableList.of(
             FIX_WRONG_BLOCKS,
@@ -73,19 +74,19 @@ public final class Configs implements IConfigHandler {
             MAX_RETRIES);
 
     // --- Blocks (filters) ---
-    public static final ConfigStringList EXCLUDED_BLOCKS = new ConfigStringList("excludedBlocks", ImmutableList.of()).apply(PREFIX);
-    public static final ConfigStringList PROTECTED_BLOCKS = new ConfigStringList("protectedBlocks", ImmutableList.of()).apply(PREFIX);
+    public static final ConfigStringList EXCLUDED_BLOCKS = stringList("excludedBlocks", ImmutableList.of());
+    public static final ConfigStringList PROTECTED_BLOCKS = stringList("protectedBlocks", ImmutableList.of());
 
     public static final ImmutableList<IConfigBase> BLOCKS = ImmutableList.of(EXCLUDED_BLOCKS, PROTECTED_BLOCKS);
 
     // --- Extras ---
-    public static final ConfigBoolean STRIP_LOGS = new ConfigBoolean("stripLogs", true).apply(PREFIX);
-    public static final ConfigBoolean COMPOSTER_LEVELS = new ConfigBoolean("composterLevels", true).apply(PREFIX);
-    public static final ConfigStringList COMPOSTER_ITEMS = new ConfigStringList("composterItems", ImmutableList.of()).apply(PREFIX);
-    public static final ConfigBoolean LIVE_CORAL_FOR_DEAD = new ConfigBoolean("liveCoralForDead", true).apply(PREFIX);
-    public static final ConfigBoolean CORAL_WAIT_FOR_WATER = new ConfigBoolean("coralWaitForWater", true).apply(PREFIX);
-    public static final ConfigBoolean BREAK_BEDROCK = new ConfigBoolean("breakBedrock", false).apply(PREFIX);
-    public static final ConfigStringList BEDROCK_BLOCKS = new ConfigStringList("bedrockBlocks", ImmutableList.of("bedrock")).apply(PREFIX);
+    public static final ConfigBoolean STRIP_LOGS = new ConfigBoolean("stripLogs", true, comment("stripLogs"), prettyName("stripLogs"));
+    public static final ConfigBoolean COMPOSTER_LEVELS = new ConfigBoolean("composterLevels", true, comment("composterLevels"), prettyName("composterLevels"));
+    public static final ConfigStringList COMPOSTER_ITEMS = stringList("composterItems", ImmutableList.of());
+    public static final ConfigBoolean LIVE_CORAL_FOR_DEAD = new ConfigBoolean("liveCoralForDead", true, comment("liveCoralForDead"), prettyName("liveCoralForDead"));
+    public static final ConfigBoolean CORAL_WAIT_FOR_WATER = new ConfigBoolean("coralWaitForWater", true, comment("coralWaitForWater"), prettyName("coralWaitForWater"));
+    public static final ConfigBoolean BREAK_BEDROCK = new ConfigBoolean("breakBedrock", false, comment("breakBedrock"), prettyName("breakBedrock"));
+    public static final ConfigStringList BEDROCK_BLOCKS = stringList("bedrockBlocks", ImmutableList.of("bedrock"));
 
     public static final ImmutableList<IConfigBase> EXTRAS = ImmutableList.of(
             STRIP_LOGS,
@@ -97,26 +98,72 @@ public final class Configs implements IConfigHandler {
             BEDROCK_BLOCKS);
 
     // --- HUD ---
-    public static final ConfigBooleanHotkeyed SHOW_HUD = new ConfigBooleanHotkeyed("showHud", true, "").apply(PREFIX);
-    public static final ConfigInteger HUD_X = new ConfigInteger("hudX", 4, 0, 4000).apply(PREFIX);
-    public static final ConfigInteger HUD_Y = new ConfigInteger("hudY", 4, 0, 4000).apply(PREFIX);
-    public static final ConfigBoolean SHOW_SKIPPED = new ConfigBoolean("showSkipped", true).apply(PREFIX);
-    public static final ConfigInteger SKIPPED_RANGE = new ConfigInteger("skippedRange", 64, 8, 256).apply(PREFIX);
+    public static final ConfigBooleanHotkeyed SHOW_HUD = new ConfigBooleanHotkeyed("showHud", true, "", comment("showHud"), prettyName("showHud"));
+    public static final ConfigInteger HUD_X = integer("hudX", 4, 0, 4000);
+    public static final ConfigInteger HUD_Y = integer("hudY", 4, 0, 4000);
+    public static final ConfigBoolean SHOW_SKIPPED = new ConfigBoolean("showSkipped", true, comment("showSkipped"), prettyName("showSkipped"));
+    public static final ConfigInteger SKIPPED_RANGE = integer("skippedRange", 64, 8, 256);
 
     public static final ImmutableList<IConfigBase> HUD = ImmutableList.of(SHOW_HUD, HUD_X, HUD_Y, SHOW_SKIPPED, SKIPPED_RANGE);
 
     public static final ImmutableList<ConfigBooleanHotkeyed> TOGGLES = ImmutableList.of(PRINTING, SHOW_HUD);
 
     // --- Hotkeys (unbound by default) ---
-    public static final ConfigHotkey OPEN_GUI = new ConfigHotkey("openGui", "").apply(PREFIX);
-    public static final ConfigHotkey EXCLUDE_LOOKED_AT = new ConfigHotkey("excludeLookedAt", "").apply(PREFIX);
-    public static final ConfigHotkey NEXT_SKIPPED = new ConfigHotkey("nextSkipped", "").apply(PREFIX);
-    public static final ConfigHotkey RETRY_SKIPPED = new ConfigHotkey("retrySkipped", "").apply(PREFIX);
+    public static final ConfigHotkey OPEN_GUI = new ConfigHotkey("openGui", "", comment("openGui"), prettyName("openGui"));
+    public static final ConfigHotkey EXCLUDE_LOOKED_AT = new ConfigHotkey("excludeLookedAt", "", comment("excludeLookedAt"), prettyName("excludeLookedAt"));
+    public static final ConfigHotkey NEXT_SKIPPED = new ConfigHotkey("nextSkipped", "", comment("nextSkipped"), prettyName("nextSkipped"));
+    public static final ConfigHotkey RETRY_SKIPPED = new ConfigHotkey("retrySkipped", "", comment("retrySkipped"), prettyName("retrySkipped"));
     public static final List<ConfigHotkey> HOTKEYS = ImmutableList.of(OPEN_GUI, EXCLUDE_LOOKED_AT, NEXT_SKIPPED, RETRY_SKIPPED);
     public static final ImmutableList<IConfigBase> HOTKEY_TAB = ImmutableList.<IConfigBase>builder()
             .addAll(HOTKEYS).addAll(TOGGLES).build();
 
     private Configs() {
+    }
+
+    // MaLiLib 0.18 has no apply(prefix): translation keys are passed in, and the types without a pretty-name
+    // constructor translate it themselves.
+    private static String comment(String name) {
+        return PREFIX + ".comment." + name;
+    }
+
+    private static String prettyName(String name) {
+        return PREFIX + ".prettyName." + name;
+    }
+
+    private static ConfigInteger integer(String name, int def, int min, int max) {
+        return new ConfigInteger(name, def, min, max, comment(name)) {
+            @Override
+            public String getPrettyName() {
+                return StringUtils.translate(prettyName(name));
+            }
+        };
+    }
+
+    private static ConfigDouble decimal(String name, double def, double min, double max) {
+        return new ConfigDouble(name, def, min, max, comment(name)) {
+            @Override
+            public String getPrettyName() {
+                return StringUtils.translate(prettyName(name));
+            }
+        };
+    }
+
+    private static ConfigString string(String name, String def) {
+        return new ConfigString(name, def, comment(name)) {
+            @Override
+            public String getPrettyName() {
+                return StringUtils.translate(prettyName(name));
+            }
+        };
+    }
+
+    private static ConfigStringList stringList(String name, ImmutableList<String> def) {
+        return new ConfigStringList(name, def, comment(name)) {
+            @Override
+            public String getPrettyName() {
+                return StringUtils.translate(prettyName(name));
+            }
+        };
     }
 
     /** Hotbar slots (0-8) the printer may put items into, from "7,8,9" style text (1-9). Never empty. */
@@ -141,7 +188,7 @@ public final class Configs implements IConfigHandler {
     public void load() {
         Path file = file();
         if (!Files.isRegularFile(file)) return;
-        JsonElement element = JsonUtils.parseJsonFile(file);
+        JsonElement element = JsonUtils.parseJsonFile(file.toFile());
         if (element == null || !element.isJsonObject()) return;
         JsonObject root = element.getAsJsonObject();
         ConfigUtils.readConfigBase(root, "Printer", PRINTER);
@@ -169,7 +216,7 @@ public final class Configs implements IConfigHandler {
         ConfigUtils.writeConfigBase(root, "Hud", HUD);
         ConfigUtils.writeConfigBase(root, "Hotkeys", HOTKEYS);
         ConfigUtils.writeConfigBase(root, "Toggles", TOGGLES);
-        JsonUtils.writeJsonToFile(root, file());
+        JsonUtils.writeJsonToFile(root, file().toFile());
     }
 
     @Override

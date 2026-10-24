@@ -41,8 +41,7 @@ public final class StateRules {
             BlockStateProperties.PICKLES,
             BlockStateProperties.EGGS,
             BlockStateProperties.LAYERS,
-            BlockStateProperties.FLOWER_AMOUNT,
-            BlockStateProperties.SEGMENT_AMOUNT);
+            BlockStateProperties.FLOWER_AMOUNT);
 
     /** Changed by right-clicking the block (repeater delay, comparator mode, note, daylight sensor, doors...). */
     public static final Set<Property<?>> CLICK = Set.of(

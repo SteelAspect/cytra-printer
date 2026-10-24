@@ -23,25 +23,25 @@ public final class Hotbar {
     public static boolean select(Minecraft mc, Item item) {
         LocalPlayer player = mc.player;
         Inventory inv = player.getInventory();
-        if (inv.getSelectedItem().is(item)) return true;
-        for (int i = 0; i < Inventory.SELECTION_SIZE; i++) {
+        if (inv.getSelected().is(item)) return true;
+        for (int i = 0; i < Inventory.getSelectionSize(); i++) {
             if (inv.getItem(i).is(item)) {
-                inv.setSelectedSlot(i);
+                inv.selected = i;
                 return true;
             }
         }
-        if (player.hasInfiniteMaterials()) {
+        if (player.getAbilities().instabuild) {
             int slot = pickSlot(inv);
-            ItemStack stack = new ItemStack(item, item.getDefaultMaxStackSize());
+            ItemStack stack = new ItemStack(item, item.getMaxStackSize());
             inv.setItem(slot, stack);
             mc.gameMode.handleCreativeModeItemAdd(stack, 36 + slot);
-            inv.setSelectedSlot(slot);
+            inv.selected = slot;
             return true;
         }
-        for (int i = Inventory.SELECTION_SIZE; i < Inventory.INVENTORY_SIZE; i++) {
+        for (int i = Inventory.getSelectionSize(); i < Inventory.INVENTORY_SIZE; i++) {
             if (inv.getItem(i).is(item)) {
                 swapIn(mc, i);
-                return inv.getSelectedItem().is(item);
+                return inv.getSelected().is(item);
             }
         }
         return false;
@@ -60,13 +60,13 @@ public final class Hotbar {
         double bestScore = 1.0;
         for (int i = 0; i < Inventory.INVENTORY_SIZE; i++) {
             double sc = score.applyAsDouble(inv.getItem(i));
-            if (sc > bestScore || (sc == bestScore && best >= Inventory.SELECTION_SIZE && i < Inventory.SELECTION_SIZE)) {
+            if (sc > bestScore || (sc == bestScore && best >= Inventory.getSelectionSize() && i < Inventory.getSelectionSize())) {
                 best = i;
                 bestScore = sc;
             }
         }
         if (best < 0) return false;
-        if (best < Inventory.SELECTION_SIZE) inv.setSelectedSlot(best);
+        if (best < Inventory.getSelectionSize()) inv.selected = best;
         else swapIn(mc, best);
         return true;
     }
@@ -77,7 +77,7 @@ public final class Hotbar {
         int hotbar = pickSlot(player.getInventory());
         // Inventory menu slots 9-35 are the main inventory, same numbers as Inventory.
         mc.gameMode.handleInventoryMouseClick(player.inventoryMenu.containerId, invSlot, hotbar, ClickType.SWAP, player);
-        player.getInventory().setSelectedSlot(hotbar);
+        player.getInventory().selected = hotbar;
     }
 
     /** An empty configured slot if there is one, otherwise the configured slots in turn. */
@@ -102,13 +102,13 @@ public final class Hotbar {
             ItemStack s = inv.getItem(i);
             if (s.isEmpty()) continue;
             double sc = score.applyAsDouble(s);
-            if (sc > bestScore || (sc == bestScore && best >= Inventory.SELECTION_SIZE && i < Inventory.SELECTION_SIZE)) {
+            if (sc > bestScore || (sc == bestScore && best >= Inventory.getSelectionSize() && i < Inventory.getSelectionSize())) {
                 best = i;
                 bestScore = sc;
             }
         }
         if (best < 0) return false;
-        if (best < Inventory.SELECTION_SIZE) inv.setSelectedSlot(best);
+        if (best < Inventory.getSelectionSize()) inv.selected = best;
         else swapIn(mc, best);
         return true;
     }
@@ -129,7 +129,7 @@ public final class Hotbar {
     }
 
     public static boolean has(LocalPlayer player, Item item) {
-        if (player.hasInfiniteMaterials()) return true;
+        if (player.getAbilities().instabuild) return true;
         Inventory inv = player.getInventory();
         for (int i = 0; i < Inventory.INVENTORY_SIZE; i++) {
             if (inv.getItem(i).is(item)) return true;

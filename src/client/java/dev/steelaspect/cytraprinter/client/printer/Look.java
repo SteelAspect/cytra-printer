@@ -3,8 +3,7 @@ package dev.steelaspect.cytraprinter.client.printer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
-import net.minecraft.network.protocol.game.ServerboundPlayerInputPacket;
-import net.minecraft.world.entity.player.Input;
+import net.minecraft.network.protocol.game.ServerboundPlayerCommandPacket;
 
 /**
  * The rotation and sneak state the server has for us while printing. The printer owns the server-side rotation
@@ -34,7 +33,7 @@ final class Look {
         locked = true;
         yaw = headYaw = player.getYRot();
         pitch = player.getXRot();
-        sneak = player.input.keyPresses.shift();
+        sneak = player.input.shiftKeyDown;
         headTicks = 0;
     }
 
@@ -44,8 +43,8 @@ final class Look {
         locked = false;
         LocalPlayer player = mc.player;
         if (player == null || mc.getConnection() == null) return;
-        mc.getConnection().send(new ServerboundMovePlayerPacket.Rot(player.getYRot(), player.getXRot(), player.onGround(), player.horizontalCollision));
-        if (sneak != player.input.keyPresses.shift()) mc.getConnection().send(new ServerboundPlayerInputPacket(player.input.keyPresses));
+        mc.getConnection().send(new ServerboundMovePlayerPacket.Rot(player.getYRot(), player.getXRot(), player.onGround()));
+        if (sneak != player.input.shiftKeyDown) sendSneak(mc, player.input.shiftKeyDown);
     }
 
     /** The server set our rotation itself (teleport): start over from it and wait for the head again. */
@@ -83,15 +82,20 @@ final class Look {
     static void apply(Minecraft mc, float newYaw, float newPitch, boolean newSneak) {
         LocalPlayer player = mc.player;
         if (newYaw != yaw || newPitch != pitch) {
-            mc.getConnection().send(new ServerboundMovePlayerPacket.Rot(newYaw, newPitch, player.onGround(), player.horizontalCollision));
+            mc.getConnection().send(new ServerboundMovePlayerPacket.Rot(newYaw, newPitch, player.onGround()));
             yaw = newYaw;
             pitch = newPitch;
         }
         if (newSneak != sneak) {
-            Input in = player.input.keyPresses;
-            mc.getConnection().send(new ServerboundPlayerInputPacket(new Input(in.forward(), in.backward(), in.left(), in.right(), in.jump(), newSneak, in.sprint())));
+            sendSneak(mc, newSneak);
             sneak = newSneak;
         }
+    }
+
+    /** 1.20.4 servers take sneaking from the shift key command, not from an input packet. */
+    private static void sendSneak(Minecraft mc, boolean down) {
+        mc.getConnection().send(new ServerboundPlayerCommandPacket(mc.player,
+                down ? ServerboundPlayerCommandPacket.Action.PRESS_SHIFT_KEY : ServerboundPlayerCommandPacket.Action.RELEASE_SHIFT_KEY));
     }
 
     /** End of a printer tick: leave the server on {@code nextHead} (resetting the settle count if it changed), real sneak. */
@@ -101,6 +105,6 @@ final class Look {
             headYaw = nextHead;
             headTicks = 0;
         }
-        apply(mc, headYaw, player.getXRot(), player.input.keyPresses.shift());
+        apply(mc, headYaw, player.getXRot(), player.input.shiftKeyDown);
     }
 }

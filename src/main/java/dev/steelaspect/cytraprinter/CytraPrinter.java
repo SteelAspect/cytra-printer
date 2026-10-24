@@ -8,7 +8,6 @@ import net.fabricmc.api.ModInitializer;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import org.slf4j.Logger;
@@ -27,12 +26,9 @@ public class CytraPrinter implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        PayloadTypeRegistry.playC2S().register(IntentPayload.TYPE, IntentPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(HelloPayload.TYPE, HelloPayload.CODEC);
-
         ServerConfig.load();
-        ServerPlayNetworking.registerGlobalReceiver(IntentPayload.TYPE, (payload, context) -> {
-            if (ServerConfig.enabled()) IntentStore.add(context.player(), payload);
+        ServerPlayNetworking.registerGlobalReceiver(IntentPayload.TYPE, (payload, player, sender) -> {
+            if (ServerConfig.enabled()) IntentStore.add(player, payload);
         });
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> hello(handler.player));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> IntentStore.forget(handler.player));

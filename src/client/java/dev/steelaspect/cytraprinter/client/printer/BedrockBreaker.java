@@ -7,16 +7,12 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.effect.MobEffectUtil;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
@@ -133,7 +129,7 @@ final class BedrockBreaker {
     }
 
     private static boolean inReach(Minecraft mc, BlockPos pos) {
-        return mc.player.isWithinBlockInteractionRange(pos, Configs.EXTRA_REACH.getDoubleValue());
+        return Reach.within(mc.player, pos, Configs.EXTRA_REACH.getDoubleValue());
     }
 
     /** One tick of work on the current block. */
@@ -248,14 +244,12 @@ final class BedrockBreaker {
         BlockState state = Blocks.PISTON.defaultBlockState();
         float speed = stack.getDestroySpeed(state);
         if (speed > 1) {
-            Holder<Enchantment> eff = mc.level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(Enchantments.EFFICIENCY);
-            int lvl = EnchantmentHelper.getItemEnchantmentLevel(eff, stack);
+            int lvl = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.BLOCK_EFFICIENCY, stack);
             if (lvl > 0) speed += lvl * lvl + 1;
         }
         if (MobEffectUtil.hasDigSpeed(player)) speed *= 1 + (MobEffectUtil.getDigSpeedAmplification(player) + 1) * 0.2f;
-        if (player.hasEffect(net.minecraft.world.effect.MobEffects.MINING_FATIGUE)) return false;
+        if (player.hasEffect(net.minecraft.world.effect.MobEffects.DIG_SLOWDOWN)) return false;
         if (player.isEyeInFluid(FluidTags.WATER)) return false;
-        speed *= (float) player.getAttributeValue(Attributes.BLOCK_BREAK_SPEED);
         return speed / state.getBlock().defaultDestroyTime() / 30f >= 1f;
     }
 }

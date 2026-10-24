@@ -18,9 +18,9 @@ public abstract class LocalPlayerRotationMixin {
     private void cytraprinter$keepPrinterRotation(ClientPacketListener connection, Packet<?> packet, Operation<Void> original) {
         if (ClientHooks.rotationLocked()) {
             if (packet instanceof ServerboundMovePlayerPacket.PosRot p) {
-                packet = new ServerboundMovePlayerPacket.Pos(p.getX(0), p.getY(0), p.getZ(0), p.isOnGround(), p.horizontalCollision());
+                packet = new ServerboundMovePlayerPacket.Pos(p.getX(0), p.getY(0), p.getZ(0), p.isOnGround());
             } else if (packet instanceof ServerboundMovePlayerPacket.Rot p) {
-                packet = new ServerboundMovePlayerPacket.StatusOnly(p.isOnGround(), p.horizontalCollision());
+                packet = new ServerboundMovePlayerPacket.StatusOnly(p.isOnGround());
             }
         }
         original.call(connection, packet);

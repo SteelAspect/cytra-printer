@@ -2,7 +2,7 @@ package dev.steelaspect.cytraprinter.client.printer;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.Item;
@@ -56,7 +56,7 @@ final class IdFilter<T> {
             String entry = raw.trim().toLowerCase(Locale.ROOT);
             if (entry.isEmpty()) continue;
             boolean tag = entry.startsWith("#");
-            Identifier id = Identifier.tryParse(tag ? entry.substring(1) : entry);
+            ResourceLocation id = ResourceLocation.tryParse(tag ? entry.substring(1) : entry);
             if (id == null) continue;
             if (tag) tags.add(TagKey.create(key, id));
             else registry.getOptional(id).ifPresent(values::add);
@@ -65,7 +65,7 @@ final class IdFilter<T> {
 
     /** Id to store for a block: "minecraft:" is left out. */
     static String idOf(Block block) {
-        Identifier id = BuiltInRegistries.BLOCK.getKey(block);
-        return id.getNamespace().equals(Identifier.DEFAULT_NAMESPACE) ? id.getPath() : id.toString();
+        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
+        return id.getNamespace().equals(ResourceLocation.DEFAULT_NAMESPACE) ? id.getPath() : id.toString();
     }
 }

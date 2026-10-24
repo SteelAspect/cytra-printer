@@ -4,7 +4,7 @@ import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.config.Configs;
 import dev.steelaspect.cytraprinter.client.printer.Stats;
 import fi.dy.masa.malilib.interfaces.IRenderer;
-import fi.dy.masa.malilib.render.GuiContext;
+import net.minecraft.client.gui.GuiGraphics;
 import fi.dy.masa.malilib.util.StringUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.Item;
@@ -24,7 +24,7 @@ public final class HudRenderer implements IRenderer {
     }
 
     @Override
-    public void onRenderGameOverlayPost(GuiContext ctx) {
+    public void onRenderGameOverlayPost(GuiGraphics ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (!Configs.PRINTING.getBooleanValue() || !Configs.SHOW_HUD.getBooleanValue() || mc.options.hideGui || mc.player == null) return;
         List<String> lines = new ArrayList<>();
@@ -43,7 +43,7 @@ public final class HudRenderer implements IRenderer {
                     break;
                 }
                 if (sb.length() > 0) sb.append(", ");
-                sb.append(e.getKey().getName().getString()).append(" x").append(e.getValue());
+                sb.append(e.getKey().getDescription().getString()).append(" x").append(e.getValue());
             }
             add(lines, colors, StringUtils.translate(P + "missing", sb.toString()), 0xFFFF8040);
         }

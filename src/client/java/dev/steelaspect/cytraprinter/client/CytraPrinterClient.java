@@ -10,7 +10,7 @@ import net.fabricmc.loader.api.FabricLoader;
 public class CytraPrinterClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
-        ClientPlayNetworking.registerGlobalReceiver(HelloPayload.TYPE, (payload, context) -> ServerHelper.onHello(payload));
+        ClientPlayNetworking.registerGlobalReceiver(HelloPayload.TYPE, (payload, player, sender) -> ServerHelper.onHello(payload));
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> ServerHelper.reset());
         FabricLoader loader = FabricLoader.getInstance();
         if (loader.isModLoaded("litematica") && loader.isModLoaded("malilib")) {

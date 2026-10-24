@@ -125,7 +125,7 @@ final class HubPage {
                 break;
             }
             if (sb.length() > 0) sb.append(", ");
-            sb.append(e.getKey().getName().getString()).append(" x").append(e.getValue());
+            sb.append(e.getKey().getDescription().getString()).append(" x").append(e.getValue());
         }
         return Component.literal(sb.toString());
     }

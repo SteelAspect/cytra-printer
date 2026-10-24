@@ -38,7 +38,12 @@ A fast Litematica printer that never places a block wrong. Survival and creative
   `BedrockBreaker` sends START_DESTROY for the piston directly and clears the spot client-side.
 
 ## Testing
-- `./gradlew runClientGameTest` builds every placement state of about 70 blocks, saves it as a schematic, clears it
+- 1.20.4 branch (`mc1.20.4`): there are no client game tests on 1.20.4, so `./headless.sh ./smoketest.sh` runs the same
+  checks from `src/smoketest` (a test thread driving the client). It builds every placement state of about 80 blocks,
+  saves it as a schematic, clears it and prints it back in singleplayer (creative with and without the helper,
+  survival, extras, settings, skipped outlines), then sets the same build up with commands on two dedicated 1.20.4
+  servers and prints it there: one with the jar (helper), one with only Fabric API (vanilla mode).
+- 1.21.11: `./gradlew runClientGameTest` builds every placement state of about 70 blocks, saves it as a schematic, clears it
   and prints it back in creative (with and without the helper) and in survival.
 - Env vars: `CYTRA_TEST_BLOCKS=bell,observer` limits the blocks, `CYTRA_TEST_ONLY=extras` runs only the extras test
   (about 30 s), and `CYTRA_PRINTER_DEBUG=1` logs spots the printer can't solve.

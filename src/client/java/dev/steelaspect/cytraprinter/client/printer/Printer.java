@@ -22,7 +22,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
@@ -257,7 +256,7 @@ public final class Printer {
         WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getViewVector(1.0f);
-        double reach = player.blockInteractionRange() + Configs.EXTRA_REACH.getDoubleValue();
+        double reach = Reach.range() + Configs.EXTRA_REACH.getDoubleValue();
         Block found = null;
         for (double d = 0; d <= reach && found == null; d += 0.05) {
             BlockPos p = BlockPos.containing(eye.add(look.scale(d)));
@@ -290,7 +289,7 @@ public final class Printer {
         ClientLevel level = mc.level;
         LayerRange range = DataManager.getRenderLayerRange();
         double extra = Configs.EXTRA_REACH.getDoubleValue();
-        int r = (int) Math.ceil(player.blockInteractionRange() + extra) + 1;
+        int r = (int) Math.ceil(Reach.range() + extra) + 1;
         Vec3 eye = player.getEyePosition();
         BlockPos center = BlockPos.containing(eye);
         Stats.beginScan(ticks);
@@ -300,7 +299,7 @@ public final class Printer {
             for (int dx = -r; dx <= r; dx++) {
                 for (int dz = -r; dz <= r; dz++) {
                     m.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
-                    if (!level.isInsideBuildHeight(m.getY()) || !player.isWithinBlockInteractionRange(m, extra)) continue;
+                    if (level.isOutsideBuildHeight(m.getY()) || !Reach.within(player, m, extra)) continue;
                     if (!range.isPositionWithinRange(m)) continue;
                     BlockPos pos = m.immutable();
                     int wrongBefore = Stats.wrong;
@@ -435,7 +434,7 @@ public final class Printer {
     private static BlockState substitute(Minecraft mc, BlockPos pos, BlockState target) {
         LocalPlayer player = mc.player;
         Block b = target.getBlock();
-        if (player.hasInfiniteMaterials() || Hotbar.carries(player, b.asItem())) return target;
+        if (player.getAbilities().instabuild || Hotbar.carries(player, b.asItem())) return target;
         Block log = Variants.unstripped(b);
         if (log != null && Configs.STRIP_LOGS.getBooleanValue() && Hotbar.carries(player, log.asItem()) && Hotbar.any(player, Printer::isAxe)) {
             return Variants.copyProperties(target, log);
@@ -575,7 +574,7 @@ public final class Printer {
             Stats.placed(ticks);
             placed++;
         }
-        if (!missing.isEmpty() && Configs.RESTOCK.getBooleanValue() && !player.hasInfiniteMaterials()) Restock.request(missing);
+        if (!missing.isEmpty() && Configs.RESTOCK.getBooleanValue() && !player.getAbilities().instabuild) Restock.request(missing);
         return placed;
     }
 
@@ -633,7 +632,7 @@ public final class Printer {
             curWant = want;
         }
         BlockState have = level.getBlockState(watched);
-        BlockState after = have.updateShape(level, level, watched, facing.getOpposite(), pos, target, level.getRandom());
+        BlockState after = have.updateShape(facing.getOpposite(), target, level, watched, pos);
         if (after.equals(have)) return false;
         BlockPos out = pos.relative(facing.getOpposite());
         BlockState outState = level.getBlockState(out);
@@ -680,7 +679,7 @@ public final class Printer {
         Look.apply(mc, plan.yaw(), plan.pitch(), plan.sneak());
         float yaw = player.getYRot(), pitch = player.getXRot(), yawO = player.yRotO, pitchO = player.xRotO;
         float head = player.yHeadRot, headO = player.yHeadRotO;
-        Input input = player.input.keyPresses;
+        boolean shift = player.input.shiftKeyDown;
         player.setYRot(plan.yaw());
         player.setXRot(plan.pitch());
         player.yRotO = plan.yaw();
@@ -688,7 +687,7 @@ public final class Printer {
         player.yHeadRot = plan.headYaw();
         player.yHeadRotO = plan.headYaw();
         dev.steelaspect.cytraprinter.client.ClientHooks.simulatedHeadYaw = plan.headYaw();
-        player.input.keyPresses = new Input(input.forward(), input.backward(), input.left(), input.right(), input.jump(), plan.sneak(), input.sprint());
+        player.input.shiftKeyDown = plan.sneak();
         try {
             mc.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, plan.hitResult());
         } finally {
@@ -699,7 +698,7 @@ public final class Printer {
             player.yHeadRot = head;
             player.yHeadRotO = headO;
             dev.steelaspect.cytraprinter.client.ClientHooks.simulatedHeadYaw = Float.NaN;
-            player.input.keyPresses = input;
+            player.input.shiftKeyDown = shift;
         }
     }
 
@@ -731,7 +730,7 @@ public final class Printer {
                 touched(mc, job.pos(), world, job.target());
                 clicks += n;
             } else if (job.kind() == Kind.STRIP) {
-                boolean axe = player.hasInfiniteMaterials() && !Hotbar.any(player, Printer::isAxe)
+                boolean axe = player.getAbilities().instabuild && !Hotbar.any(player, Printer::isAxe)
                         ? Hotbar.select(mc, Items.DIAMOND_AXE)
                         : Hotbar.selectBest(mc, s -> isAxe(s) ? 1 : 0);
                 if (!axe) {
@@ -767,14 +766,14 @@ public final class Printer {
         }
         int n = Math.min(job.target().getValue(ComposterBlock.LEVEL), ComposterBlock.MAX_LEVEL) - have;
         if (n <= 0) return 0;
-        boolean ok = player.hasInfiniteMaterials()
+        boolean ok = player.getAbilities().instabuild
                 ? Hotbar.select(mc, Items.PUMPKIN_PIE)
                 : Hotbar.selectBest(mc, s -> compostChance(s, needed));
         if (!ok) {
             Stats.missing.merge(Items.WHEAT_SEEDS, 1, Integer::sum);
             return 0;
         }
-        if (!player.hasInfiniteMaterials()) n = Math.min(n, player.getMainHandItem().getCount());
+        if (!player.getAbilities().instabuild) n = Math.min(n, player.getMainHandItem().getCount());
         for (int i = 0; i < n; i++) use(mc, plan);
         touched(mc, pos, world, job.target());
         return n;
@@ -797,7 +796,7 @@ public final class Printer {
     private static PlacePlan clickPlan(LocalPlayer player, BlockPos pos, BlockState world) {
         Vec3 center = Vec3.atCenterOf(pos);
         Vec3 toEye = player.getEyePosition().subtract(center);
-        Direction face = Direction.getApproximateNearest(toEye.x, toEye.y, toEye.z);
+        Direction face = Direction.getNearest(toEye.x, toEye.y, toEye.z);
         if (face == Direction.UP && world.getBlock() instanceof NoteBlock) face = player.getDirection().getOpposite();
         Vec3 hit = center.add(face.getStepX() * 0.5, face.getStepY() * 0.5, face.getStepZ() * 0.5);
         float yaw = Look.headYaw;
@@ -864,14 +863,14 @@ public final class Printer {
         if (state.getBlock() instanceof LiquidBlock || isProtected(state)) return false;
         if (state.getDestroySpeed(level, pos) < 0 && !(player.getAbilities().instabuild && isBedrock(state))) return false;
         if (!Configs.BREAK_CONTAINERS.getBooleanValue() && level.getBlockEntity(pos) instanceof Container) return false;
-        return !player.blockActionRestricted(level, pos, player.gameMode());
+        return !player.blockActionRestricted(level, pos, Minecraft.getInstance().gameMode.getPlayerMode());
     }
 
     /** True while the current block is still being mined (this tick is spent on it). */
     private static boolean continueMining(Minecraft mc) {
         LocalPlayer player = mc.player;
         BlockState state = mc.level.getBlockState(mining);
-        if (state.isAir() || !player.isWithinBlockInteractionRange(mining, Configs.EXTRA_REACH.getDoubleValue())
+        if (state.isAir() || !Reach.within(player, mining, Configs.EXTRA_REACH.getDoubleValue())
                 || ticks - miningStart > MINING_TIMEOUT_TICKS || !Configs.FIX_WRONG_BLOCKS.getBooleanValue() && !Configs.CLEAR_EXTRA_BLOCKS.getBooleanValue()) {
             if (!state.isAir()) mc.gameMode.stopDestroyBlock();
             finishMining(mc);
@@ -895,7 +894,7 @@ public final class Printer {
 
     private static Direction face(LocalPlayer player, BlockPos pos) {
         Vec3 d = player.getEyePosition().subtract(Vec3.atCenterOf(pos));
-        return Direction.getApproximateNearest(d.x, d.y, d.z);
+        return Direction.getNearest(d.x, d.y, d.z);
     }
 
     private static void debugUnsolvable(ClientLevel level, BlockPos pos, BlockState world, BlockState target) {

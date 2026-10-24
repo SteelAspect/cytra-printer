@@ -1,17 +1,21 @@
 package dev.steelaspect.cytraprinter.client;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
-import com.mojang.blaze3d.vertex.MeshData;
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.Tesselator;
+import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.config.Configs;
 import dev.steelaspect.cytraprinter.client.printer.Skipped;
 import fi.dy.masa.malilib.interfaces.IRenderer;
-import fi.dy.masa.malilib.render.MaLiLibPipelines;
-import fi.dy.masa.malilib.render.RenderContext;
 import fi.dy.masa.malilib.render.RenderUtils;
-import fi.dy.masa.malilib.util.data.Color4f;
+import fi.dy.masa.malilib.util.Color4f;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 
 import java.util.List;
@@ -40,8 +44,13 @@ public final class SkippedRenderer implements IRenderer {
         };
     }
 
+    /**
+     * 1.20.4 has no render pipelines: the lines are drawn with the position-colour shader, no depth test, in the
+     * model-view MaLiLib's world-last hook already set up (as Litematica 0.17 draws its own overlays). MaLiLib 0.18's
+     * outline helper only subtracts the camera when given it.
+     */
     @Override
-    public void onRenderWorldLast(Matrix4f posMatrix, Matrix4f projMatrix) {
+    public void onRenderWorldLast(PoseStack matrices, Matrix4f projMatrix) {
         Minecraft mc = Minecraft.getInstance();
         if (!Configs.SHOW_SKIPPED.getBooleanValue() || mc.player == null || mc.options.hideGui) return;
         Skipped.checkLevel(mc.level);
@@ -49,28 +58,46 @@ public final class SkippedRenderer implements IRenderer {
         List<Skipped.Spot> spots = Skipped.near(mc.player.getEyePosition(), Configs.SKIPPED_RANGE.getIntegerValue());
         if (spots.isEmpty()) return;
         BlockPos target = Skipped.target();
-        try (RenderContext lines = new RenderContext(() -> CytraPrinter.MOD_ID + ":skipped/lines",
-                MaLiLibPipelines.DEBUG_LINES_MASA_SIMPLE_NO_DEPTH_NO_CULL)) {
-            BufferBuilder buffer = lines.getBuilder();
+        Vec3 camera = mc.gameRenderer.getMainCamera().getPosition();
+        try {
+            BufferBuilder buffer = begin(2.0f);
             for (Skipped.Spot spot : spots) {
                 if (spot.pos().equals(target)) continue;
-                RenderUtils.drawBlockBoundingBoxOutlinesBatchedLinesSimple(spot.pos(), color(spot.kind()), 0.003, 2.0f, buffer);
+                RenderUtils.drawBlockBoundingBoxOutlinesBatchedLines(spot.pos(), camera, color(spot.kind()), 0.003, buffer);
             }
+            Tesselator.getInstance().end();
             if (target != null) {
                 Color4f c = color(spots.stream().filter(s -> s.pos().equals(target)).map(Skipped.Spot::kind).findFirst().orElse(Skipped.Kind.STUCK));
                 float pulse = (float) (0.55 + 0.45 * Math.sin(System.currentTimeMillis() / 150.0));
-                RenderUtils.drawBlockBoundingBoxOutlinesBatchedLinesSimple(target, new Color4f(c.r, c.g, c.b, pulse), 0.03, 4.0f, buffer);
-            }
-            MeshData mesh = buffer.build();
-            if (mesh != null) {
-                lines.draw(mesh, false, true);
-                mesh.close();
+                buffer = begin(4.0f);
+                RenderUtils.drawBlockBoundingBoxOutlinesBatchedLines(target, camera, new Color4f(c.r, c.g, c.b, pulse), 0.03, buffer);
+                Tesselator.getInstance().end();
             }
         } catch (Exception e) {
             if (!loggedError) {
                 loggedError = true;
                 CytraPrinter.LOGGER.warn("Skipped block outlines failed", e);
             }
+        } finally {
+            RenderSystem.lineWidth(1.0f);
+            RenderSystem.depthMask(true);
+            RenderSystem.enableDepthTest();
+            RenderSystem.enableCull();
+            RenderSystem.disableBlend();
         }
+    }
+
+    private static BufferBuilder begin(float lineWidth) {
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.disableCull();
+        RenderSystem.depthMask(false);
+        RenderSystem.disableDepthTest();
+        RenderSystem.setShader(GameRenderer::getPositionColorShader);
+        RenderSystem.lineWidth(lineWidth);
+        RenderSystem.applyModelViewMatrix();
+        BufferBuilder buffer = Tesselator.getInstance().getBuilder();
+        buffer.begin(VertexFormat.Mode.DEBUG_LINES, DefaultVertexFormat.POSITION_COLOR);
+        return buffer;
     }
 }
