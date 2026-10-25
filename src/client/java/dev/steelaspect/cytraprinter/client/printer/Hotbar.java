@@ -47,8 +47,17 @@ public final class Hotbar {
         return false;
     }
 
-    /** Puts the best tool for the block in hand (survival); false when nothing in the inventory beats bare hands. */
+    /**
+     * Puts the best tool for the block in hand (survival). When no tool is faster than a bare hand (glass, for
+     * example), a pickaxe is used, so the printer never breaks with a sword or a block in hand. False when there's
+     * neither.
+     */
     public static boolean selectTool(Minecraft mc, BlockState state) {
+        if (selectFastest(mc, state)) return true;
+        return selectBest(mc, s -> s.is(net.minecraft.tags.ItemTags.PICKAXES) && !(s.isDamageableItem() && s.getMaxDamage() - s.getDamageValue() <= 2) ? 1 : 0);
+    }
+
+    private static boolean selectFastest(Minecraft mc, BlockState state) {
         Inventory inv = mc.player.getInventory();
         ToDoubleFunction<ItemStack> score = s -> {
             if (s.isEmpty() || (s.isDamageableItem() && s.getMaxDamage() - s.getDamageValue() <= 2)) return -1;

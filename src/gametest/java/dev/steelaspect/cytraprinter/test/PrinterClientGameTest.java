@@ -73,10 +73,10 @@ public class PrinterClientGameTest implements FabricClientGameTest {
     public void runTest(ClientGameTestContext context) {
         try (TestSingleplayerContext world = context.worldBuilder().create()) {
             world.getClientWorld().waitForChunksRender();
-            world.getServer().runCommand("gamerule doDaylightCycle false");
-            world.getServer().runCommand("gamerule doMobSpawning false");
-            world.getServer().runCommand("gamerule doTileDrops false");
-            world.getServer().runCommand("gamerule randomTickSpeed 0");
+            world.getServer().runCommand("gamerule advance_time false");
+            world.getServer().runCommand("gamerule spawn_mobs false");
+            world.getServer().runCommand("gamerule block_drops false");
+            world.getServer().runCommand("gamerule random_tick_speed 0");
             world.getServer().runCommand("time set noon");
             BlockPos feet = world.getServer().computeOnServer(s -> s.getPlayerList().getPlayers().get(0).blockPosition());
             BlockPos origin = new BlockPos(feet.getX() + 4, Y, feet.getZ() + 4);
@@ -96,6 +96,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             settings(context, world);
             // Skipped-block outlines, next and retry (CYTRA_TEST_ONLY=skipped: only this and the settings).
             skipped(context, world, origin.offset(-12, 0, 0));
+            lagSafety(context, world, origin.offset(-24, 0, 0));
             if ("settings".equals(System.getenv("CYTRA_TEST_ONLY")) || "skipped".equals(System.getenv("CYTRA_TEST_ONLY"))) {
                 if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
                 return;
@@ -443,7 +444,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             server.overworld().setBlock(o.offset(1, 1, 1), Blocks.DIRT.defaultBlockState(), 2);
         });
         world.getServer().runCommand("gamemode survival @a");
-        world.getServer().runCommand("gamerule doTileDrops true");
+        world.getServer().runCommand("gamerule block_drops true");
         world.getServer().runOnServer(server -> {
             ServerPlayer p = server.getPlayerList().getPlayers().get(0);
             Inventory inv = p.getInventory();
@@ -458,6 +459,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             inv.setItem(15, new ItemStack(Items.OBSERVER, 4));
             inv.setItem(16, new ItemStack(Items.CANDLE, 8));
             inv.setItem(20, new ItemStack(Items.IRON_SHOVEL));
+            inv.setItem(22, new ItemStack(Items.STONE_PICKAXE));
             p.getAbilities().mayfly = true;
             p.getAbilities().flying = true;
             p.onUpdateAbilities();
@@ -468,6 +470,18 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, o, "printer-survival", true, true), false);
         });
         context.waitTicks(10);
+        // No tool is faster on glass than a hand: a pickaxe, not the sword in hand.
+        boolean pickaxe = context.computeOnClient(client -> {
+            client.player.getInventory().setSelectedSlot(0);
+            dev.steelaspect.cytraprinter.client.printer.Hotbar.selectTool(client, Blocks.GLASS.defaultBlockState());
+            return client.player.getMainHandItem().is(Items.STONE_PICKAXE);
+        });
+        check(mode + ": pickaxe for glass", pickaxe, "holding something else");
+        boolean shovel = context.computeOnClient(client -> {
+            dev.steelaspect.cytraprinter.client.printer.Hotbar.selectTool(client, Blocks.DIRT.defaultBlockState());
+            return client.player.getMainHandItem().is(Items.IRON_SHOVEL);
+        });
+        check(mode + ": shovel for dirt", shovel, "holding something else");
         context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
         context.waitTicks(10);
         boolean reportedMissing = context.computeOnClient(c -> Stats.missing.containsKey(Items.DIAMOND_BLOCK));
@@ -540,7 +554,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             level.setBlock(bedrockHigh, Blocks.BEDROCK.defaultBlockState(), 3);
         });
         world.getServer().runCommand("gamemode survival @a");
-        world.getServer().runCommand("gamerule doTileDrops true");
+        world.getServer().runCommand("gamerule block_drops true");
         world.getServer().runCommand("effect give @a haste infinite 1 true");
         world.getServer().runOnServer(server -> {
             ServerPlayer p = server.getPlayerList().getPlayers().get(0);
@@ -812,6 +826,76 @@ public class PrinterClientGameTest implements FabricClientGameTest {
     private static BlockState schematicState(MinecraftServer server, BlockPos pos) {
         var w = fi.dy.masa.litematica.world.SchematicWorldHandler.getSchematicWorld();
         return w == null ? Blocks.AIR.defaultBlockState() : w.getBlockState(pos);
+    }
+
+    /**
+     * Server lag: a spot whose own change the server hasn't confirmed yet is left alone, and the server helper refuses
+     * a printer click that would land next to the aimed spot (the server still has a block where the client shows air).
+     */
+    private void lagSafety(ClientGameTestContext context, TestSingleplayerContext world, BlockPos o) {
+        BlockPos max = o.offset(4, 2, 4);
+        BlockPos spot = o.offset(2, 1, 2);
+        int f = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, p.getY() == o.getY() ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), f);
+            level.setBlock(spot, Blocks.DIRT.defaultBlockState(), f);
+        });
+        LitematicaSchematic schematic = world.getServer().computeOnServer(server -> capture(server, o, max, "lag"));
+        world.getServer().runOnServer(server -> {
+            clear(server, o, max);
+            server.getPlayerList().getPlayers().get(0).teleportTo(server.overworld(), o.getX() + 2.5, o.getY() + 3, o.getZ() + 0.5, Set.of(), 0f, 60f, true);
+        });
+        world.getServer().runCommand("gamemode creative @a");
+        context.waitTicks(5);
+
+        // 1. A change at the spot the server hasn't answered yet: the printer waits.
+        context.runOnClient(client -> {
+            var handler = ((dev.steelaspect.cytraprinter.client.mixin.ClientLevelPredictionAccessor) client.level).cytraprinter$predictions();
+            handler.retainKnownServerState(spot, Blocks.AIR.defaultBlockState(), client.player);
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, o, "printer-lag", true, true), false);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+        context.waitTicks(20);
+        boolean waited = world.getServer().computeOnServer(server -> server.overworld().getBlockState(spot).isAir());
+        boolean pending = context.computeOnClient(client -> dev.steelaspect.cytraprinter.client.printer.Printer.pendingAt(client.level, spot));
+        check("lag: unconfirmed spot left alone", waited && pending, "placed=" + !waited + " pending=" + pending);
+        context.runOnClient(client -> {
+            var handler = ((dev.steelaspect.cytraprinter.client.mixin.ClientLevelPredictionAccessor) client.level).cytraprinter$predictions();
+            handler.endPredictionsUpTo(handler.currentSequence() + 1, client.level);
+        });
+        context.waitTicks(20);
+        boolean placed = world.getServer().computeOnServer(server -> server.overworld().getBlockState(spot).is(Blocks.DIRT));
+        check("lag: placed once confirmed", placed, "still not placed");
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+
+        // 2. Server helper: the aimed spot is taken on the server, so vanilla would place on top of it. Refused.
+        BlockPos above = spot.above();
+        boolean refused = world.getServer().computeOnServer(server -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            level.setBlock(above, Blocks.AIR.defaultBlockState(), 3);
+            dev.steelaspect.cytraprinter.server.IntentStore.add(p, new dev.steelaspect.cytraprinter.net.IntentPayload(spot, Blocks.DIRT.defaultBlockState()));
+            p.gameMode.useItemOn(p, level, new ItemStack(Items.OAK_PLANKS), net.minecraft.world.InteractionHand.MAIN_HAND,
+                    new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(spot).add(0, 0.5, 0), Direction.UP, spot, false));
+            return level.getBlockState(above).isAir();
+        });
+        check("lag: helper refuses a click that would land next door", refused, "planks placed above");
+        boolean normal = world.getServer().computeOnServer(server -> {
+            ServerLevel level = server.overworld();
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            p.gameMode.useItemOn(p, level, new ItemStack(Items.OAK_PLANKS), net.minecraft.world.InteractionHand.MAIN_HAND,
+                    new net.minecraft.world.phys.BlockHitResult(net.minecraft.world.phys.Vec3.atCenterOf(spot).add(0, 0.5, 0), Direction.UP, spot, false));
+            return level.getBlockState(above).is(Blocks.OAK_PLANKS);
+        });
+        check("lag: a normal click on top still works", normal, "not placed");
+
+        context.runOnClient(client -> DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
+        });
     }
 
     private void check(String label, boolean ok, String detail) {

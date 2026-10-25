@@ -41,6 +41,10 @@ public final class PlacementAssist {
 
     public static BlockState apply(ServerPlayer player, BlockItem item, BlockPlaceContext ctx, BlockState vanilla) {
         BlockPos pos = ctx.getClickedPos();
+        // The printer clicked a spot it saw as free, but the server still has a block there (lag, a ghost block), so
+        // vanilla would put the block next to it instead. Refuse: the printer tries again once it sees the real state.
+        BlockPos aimed = ((dev.steelaspect.cytraprinter.mixin.UseOnContextAccessor) ctx).cytraprinter$hitResult().getBlockPos();
+        if (!aimed.equals(pos) && ServerConfig.enabled() && IntentStore.take(player, aimed) != null) return null;
         BlockState want = IntentStore.take(player, pos);
         // Vanilla said no (door top blocked, bed head blocked, no support...): stays no. Overriding a refusal could
         // let a two-block placement overwrite whatever is in its way.

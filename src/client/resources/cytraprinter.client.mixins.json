@@ -5,13 +5,15 @@
   "compatibilityLevel": "JAVA_21",
   "client": [
     "AxeItemAccessor",
+    "ClientLevelPredictionAccessor",
     "ClientPacketListenerTeleportMixin",
     "ClientPacketListenerTimeMixin",
     "LocalPlayerRotationMixin",
     "LocalPlayerSignMixin",
     "LocalPlayerViewMixin",
     "MultiPlayerGameModeAccessor",
-    "MultiPlayerGameModeUseMixin"
+    "MultiPlayerGameModeUseMixin",
+    "PredictionHandlerAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

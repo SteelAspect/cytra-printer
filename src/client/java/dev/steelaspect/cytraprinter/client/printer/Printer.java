@@ -319,6 +319,7 @@ public final class Printer {
         Vec3 eye = player.getEyePosition();
         BlockPos center = BlockPos.containing(eye);
         Stats.beginScan(ticks);
+        var pending = pendingPredictions(level);
         List<Job> jobs = new ArrayList<>();
         BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
         for (int dy = -r; dy <= r; dy++) {
@@ -327,6 +328,10 @@ public final class Printer {
                     m.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
                     if (!level.isInsideBuildHeight(m.getY()) || !player.isWithinBlockInteractionRange(m, extra)) continue;
                     if (!range.isPositionWithinRange(m)) continue;
+                    // Our own break or placement here isn't confirmed by the server yet: what the client shows may
+                    // not be what the server has, and a click into a spot the server still has a block in would put
+                    // the block next to it instead. Wait for the server's answer, however long it lags.
+                    if (pending != null && pending.containsKey(m.asLong())) continue;
                     BlockPos pos = m.immutable();
                     int wrongBefore = Stats.wrong;
                     Job job = classify(mc, schematic, pos, eye);
@@ -1003,6 +1008,23 @@ public final class Printer {
             if (info != null) ping = info.getLatency();
         }
         return Math.max(3, Math.min(40, (int) Math.ceil(ping * 2.0 / 50.0) + 3));
+    }
+
+    /** Positions with client predictions the server hasn't answered yet, or null when that can't be read. */
+    private static it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<?> pendingPredictions(ClientLevel level) {
+        try {
+            var handler = ((dev.steelaspect.cytraprinter.client.mixin.ClientLevelPredictionAccessor) level).cytraprinter$predictions();
+            var map = ((dev.steelaspect.cytraprinter.client.mixin.PredictionHandlerAccessor) handler).cytraprinter$pending();
+            return map.isEmpty() ? null : map;
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** True while the server hasn't confirmed our own change at pos (tests). */
+    public static boolean pendingAt(ClientLevel level, BlockPos pos) {
+        var map = pendingPredictions(level);
+        return map != null && map.containsKey(pos.asLong());
     }
 
     /** The current head yaw first, then the other three cardinal yaws (vanilla mode turns the head for those). */

@@ -94,6 +94,16 @@ the same config.
 - 1.3.0 → 1.3.1 on the big test build: worst tick while printing went from 25 ms to 2.5–5 ms. Standing at a finished
   build went from 6.5 ms p95 to 0.27 ms.
 
+## Lag safety (1.3.2)
+- The client shows its own clicks and breaks right away. With lag the server may still have the old block, and a
+  click into a spot the server sees as taken puts the block next to it, which is a wrong block.
+- The scan now skips every position in vanilla's `BlockStatePredictionHandler.serverVerifiedStates`, the client's
+  own changes the server hasn't answered yet. This works however long the server lags; the old fixed wait
+  (`confirmTicks`) stays for detecting reverts.
+- The server helper (`PlacementAssist`) refuses a click whose placement moved off the aimed spot when the printer has
+  an intent for the aimed spot.
+- Breaking: the fastest tool, or a pickaxe when no tool beats a hand (glass), never a sword or a block in hand.
+
 ## Open ideas
 - Auto-craft missing items through Alloy Mass Craft (optional hook, like Restock).
 - A server GameTest for the helper.
