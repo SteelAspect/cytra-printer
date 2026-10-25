@@ -23,14 +23,15 @@ public final class SignText {
         WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
         if (!Configs.SIGN_TEXT.getBooleanValue() || schematic == null || mc.getConnection() == null) return true;
         if (!(schematic.getBlockEntity(sign.getBlockPos()) instanceof SignBlockEntity wanted)) return true;
-        var text = wanted.getText(front);
+        var slot = front ? net.minecraft.world.level.block.entity.SignTextSlot.FRONT : net.minecraft.world.level.block.entity.SignTextSlot.BACK;
+        var text = wanted.getText(slot);
         String[] lines = new String[4];
         boolean any = false;
         for (int i = 0; i < 4; i++) {
-            lines[i] = text.getMessage(i, false).getString();
+            lines[i] = text.getMessages(false).get(i).getString();
             any |= !lines[i].isEmpty();
         }
-        if (any) mc.getConnection().send(new ServerboundSignUpdatePacket(sign.getBlockPos(), front, lines[0], lines[1], lines[2], lines[3]));
+        if (any) mc.getConnection().send(new ServerboundSignUpdatePacket(sign.getBlockPos(), java.util.List.of(lines), slot));
         return true;
     }
 }

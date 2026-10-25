@@ -27,8 +27,8 @@ public class CytraPrinter implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        PayloadTypeRegistry.playC2S().register(IntentPayload.TYPE, IntentPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(HelloPayload.TYPE, HelloPayload.CODEC);
+        PayloadTypeRegistry.serverboundPlay().register(IntentPayload.TYPE, IntentPayload.CODEC);
+        PayloadTypeRegistry.clientboundPlay().register(HelloPayload.TYPE, HelloPayload.CODEC);
 
         ServerConfig.load();
         ServerPlayNetworking.registerGlobalReceiver(IntentPayload.TYPE, (payload, context) -> {

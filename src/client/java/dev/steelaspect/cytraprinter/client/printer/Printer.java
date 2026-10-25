@@ -10,7 +10,7 @@ import fi.dy.masa.litematica.data.DataManager;
 import fi.dy.masa.litematica.schematic.placement.SchematicPlacementManager;
 import fi.dy.masa.litematica.world.SchematicWorldHandler;
 import fi.dy.masa.litematica.world.WorldSchematic;
-import fi.dy.masa.malilib.util.LayerRange;
+import fi.dy.masa.malilib.util.position.LayerRange;
 import it.unimi.dsi.fastutil.longs.Long2IntOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -24,20 +24,18 @@ import net.minecraft.world.Container;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.BellBlock;
 import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.ComposterBlock;
 import net.minecraft.world.level.block.CopperBulbBlock;
 import net.minecraft.world.level.block.CrafterBlock;
 import net.minecraft.world.level.block.DiodeBlock;
 import net.minecraft.world.level.block.HopperBlock;
 import net.minecraft.world.level.block.PoweredRailBlock;
-import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RedstoneWireBlock;
 import net.minecraft.world.level.block.RedstoneLampBlock;
 import net.minecraft.world.level.block.TntBlock;
 import net.minecraft.world.level.block.ComparatorBlock;
@@ -79,7 +77,7 @@ import java.util.Set;
  * answered, and one that keeps failing is parked for a while instead of being retried forever.
  */
 public final class Printer {
-    private enum Kind { PLACE, CLICK, POT, BREAK, STRIP, COMPOST, BEDROCK }
+    private enum Kind { PLACE, CLICK, POT, BREAK, STRIP, BEDROCK }
 
     private record Job(Kind kind, BlockPos pos, BlockState target, BlockState world, Item item, double dist) {
     }
@@ -97,7 +95,6 @@ public final class Printer {
     private static final IdFilter<Block> EXCLUDED = IdFilter.blocks();
     private static final IdFilter<Block> PROTECTED = IdFilter.blocks();
     private static final IdFilter<Block> BEDROCK = IdFilter.blocks();
-    private static final IdFilter<Item> COMPOST_ITEMS = IdFilter.items();
 
     /** -Dcytraprinter.debug=true: log every spot the solver can't solve, with its neighbours. */
     private static final boolean DEBUG = Boolean.getBoolean("cytraprinter.debug");
@@ -175,7 +172,7 @@ public final class Printer {
         LocalPlayer player = mc.player;
         if (Configs.PRINTING.getBooleanValue() && player != null && Configs.DISABLE_ON_DEATH.getBooleanValue() && player.isDeadOrDying()) {
             Configs.PRINTING.setBooleanValue(false);
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("cytraprinter.msg.off_death"), false);
+            player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("cytraprinter.msg.off_death"));
         }
         if (!Configs.PRINTING.getBooleanValue() || player == null || mc.level == null || mc.gameMode == null || mc.getConnection() == null) {
             stopMining(mc);
@@ -191,7 +188,7 @@ public final class Printer {
         }
         Look.lock(player);
         Look.tick();
-        if (mc.screen != null || player.isUsingItem()) return;
+        if (mc.gui.screen() != null || player.isUsingItem()) return;
         Stats.lagging = Configs.PAUSE_ON_LAG.getBooleanValue() && System.currentTimeMillis() - ClientHooks.lastServerTimeMillis > LAG_MILLIS;
         if (Stats.lagging) return;
         if (ticks % 200 == 0) {
@@ -282,7 +279,7 @@ public final class Printer {
         WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
         Vec3 eye = player.getEyePosition();
         Vec3 look = player.getViewVector(1.0f);
-        double reach = player.blockInteractionRange() + Configs.EXTRA_REACH.getDoubleValue();
+        double reach = player.blockInteractionRange();
         Block found = null;
         for (double d = 0; d <= reach && found == null; d += 0.05) {
             BlockPos p = BlockPos.containing(eye.add(look.scale(d)));
@@ -294,7 +291,7 @@ public final class Printer {
             }
         }
         if (found == null) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable("cytraprinter.msg.exclude_none"), true);
+            player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable("cytraprinter.msg.exclude_none"));
             return;
         }
         String id = IdFilter.idOf(found);
@@ -304,8 +301,8 @@ public final class Printer {
         if (!removed) list.add(id);
         Configs.EXCLUDED_BLOCKS.setStrings(list);
         Configs.INSTANCE.save();
-        player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                removed ? "cytraprinter.msg.included" : "cytraprinter.msg.excluded", found.getName()), true);
+        player.sendOverlayMessage(net.minecraft.network.chat.Component.translatable(
+                removed ? "cytraprinter.msg.included" : "cytraprinter.msg.excluded", found.getName()));
     }
 
     // ---------------------------------------------------------------- scanning
@@ -314,8 +311,7 @@ public final class Printer {
         LocalPlayer player = mc.player;
         ClientLevel level = mc.level;
         LayerRange range = DataManager.getRenderLayerRange();
-        double extra = Configs.EXTRA_REACH.getDoubleValue();
-        int r = (int) Math.ceil(player.blockInteractionRange() + extra) + 1;
+        int r = (int) Math.ceil(player.blockInteractionRange()) + 1;
         Vec3 eye = player.getEyePosition();
         BlockPos center = BlockPos.containing(eye);
         Stats.beginScan(ticks);
@@ -326,7 +322,7 @@ public final class Printer {
             for (int dx = -r; dx <= r; dx++) {
                 for (int dz = -r; dz <= r; dz++) {
                     m.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
-                    if (!level.isInsideBuildHeight(m.getY()) || !player.isWithinBlockInteractionRange(m, extra)) continue;
+                    if (!level.isInsideBuildHeight(m.getY()) || !player.isWithinBlockInteractionRange(m, 0.0)) continue;
                     if (!range.isPositionWithinRange(m)) continue;
                     // Our own break or placement here isn't confirmed by the server yet: what the client shows may
                     // not be what the server has, and a click into a spot the server still has a block in would put
@@ -396,25 +392,6 @@ public final class Printer {
             target = Blocks.FLOWER_POT.defaultBlockState();
         }
 
-        // Composter fill level: fill it up to the level (it turns from 7 to 8 by itself), empty it if it's ready.
-        if (Configs.COMPOSTER_LEVELS.getBooleanValue() && target.is(Blocks.COMPOSTER) && world.is(Blocks.COMPOSTER)) {
-            int want = target.getValue(ComposterBlock.LEVEL), have = world.getValue(ComposterBlock.LEVEL);
-            if (want == have) {
-                attempts.remove(pos.asLong());
-                return null;
-            }
-            if (have == ComposterBlock.READY || have < Math.min(want, ComposterBlock.MAX_LEVEL)) {
-                Stats.remaining++;
-                return new Job(Kind.COMPOST, pos, target, world, null, dist);
-            }
-            if (have == ComposterBlock.MAX_LEVEL && want == ComposterBlock.READY) {
-                Stats.held++;
-                return null;
-            }
-            Stats.wrong++;
-            return Configs.FIX_WRONG_BLOCKS.getBooleanValue() && !isProtected(world) ? new Job(Kind.BREAK, pos, target, world, null, dist) : null;
-        }
-
         // Coral: live coral without water dies in a few seconds, so it waits for water (or is left to die when the
         // schematic wants the dead one).
         Block deadForm = Variants.dead(target.getBlock());
@@ -478,7 +455,7 @@ public final class Printer {
     }
 
     private static boolean isAxe(ItemStack s) {
-        return s.getItem() instanceof AxeItem && (!s.isDamageableItem() || s.getMaxDamage() - s.getDamageValue() > 2);
+        return s.is(net.minecraft.tags.ItemTags.AXES) && (!s.isDamageableItem() || s.getMaxDamage() - s.getDamageValue() > 2);
     }
 
     /** A block on the bedrock list while bedrock breaking is on. */
@@ -518,7 +495,7 @@ public final class Printer {
 
     private static boolean insidePlacement(BlockPos pos) {
         for (SchematicPlacementManager.PlacementPart part : DataManager.getSchematicPlacementManager().getAllPlacementsTouchingChunk(pos)) {
-            if (part.getPlacement().isEnabled() && part.getBox().containsPos(pos)) return true;
+            if (part.getPlacement().isEnabled() && part.getBox().contains(pos)) return true;
         }
         return false;
     }
@@ -742,7 +719,7 @@ public final class Printer {
     /** Blocks that do something when an observer pulses into them (or into the block they sit on). */
     private static boolean reactsToPower(BlockState state) {
         Block b = state.getBlock();
-        return b instanceof PistonBaseBlock || b instanceof DispenserBlock || b instanceof RedStoneWireBlock || b instanceof DiodeBlock
+        return b instanceof PistonBaseBlock || b instanceof DispenserBlock || b instanceof RedstoneWireBlock || b instanceof DiodeBlock
                 || b instanceof NoteBlock || b instanceof TntBlock || b instanceof DoorBlock || b instanceof TrapDoorBlock
                 || b instanceof FenceGateBlock || b instanceof RedstoneLampBlock || b instanceof PoweredRailBlock || b instanceof BellBlock
                 || b instanceof HopperBlock || b instanceof CrafterBlock || b instanceof CopperBulbBlock;
@@ -782,8 +759,6 @@ public final class Printer {
     private static void click(Minecraft mc, List<Job> jobs, int placedThisTick) {
         LocalPlayer player = mc.player;
         int clicks = 0;
-        Set<Item> needed = new HashSet<>();
-        for (Job j : jobs) if (j.kind() == Kind.PLACE) needed.add(j.item());
         int potBudget = Math.max(0, Configs.PLACEMENTS_PER_TICK.getIntegerValue() - placedThisTick);
         for (Job job : jobs) {
             if (clicks >= MAX_CLICKS_PER_TICK) break;
@@ -816,50 +791,8 @@ public final class Printer {
                 use(mc, clickPlan(player, job.pos(), world));
                 touched(mc, job.pos(), world, job.target());
                 clicks++;
-            } else if (job.kind() == Kind.COMPOST) {
-                clicks += compost(mc, job, needed);
             }
         }
-    }
-
-    /**
-     * Fills a composter towards its level with compostable items (best chance first, never items the build still
-     * needs), or empties a full one. Several items go in at once when that can't overshoot: each raises it by at
-     * most one, and at 7 vanilla takes no more.
-     */
-    private static int compost(Minecraft mc, Job job, Set<Item> needed) {
-        LocalPlayer player = mc.player;
-        BlockPos pos = job.pos();
-        BlockState world = mc.level.getBlockState(pos);
-        if (!world.is(Blocks.COMPOSTER)) return 0;
-        int have = world.getValue(ComposterBlock.LEVEL);
-        PlacePlan plan = clickPlan(player, pos, world);
-        if (have == ComposterBlock.READY) {
-            use(mc, plan);
-            touched(mc, pos, world, job.target());
-            return 1;
-        }
-        int n = Math.min(job.target().getValue(ComposterBlock.LEVEL), ComposterBlock.MAX_LEVEL) - have;
-        if (n <= 0) return 0;
-        boolean ok = player.hasInfiniteMaterials()
-                ? Hotbar.select(mc, Items.PUMPKIN_PIE)
-                : Hotbar.selectBest(mc, s -> compostChance(s, needed));
-        if (!ok) {
-            Stats.missing.merge(Items.WHEAT_SEEDS, 1, Integer::sum);
-            return 0;
-        }
-        if (!player.hasInfiniteMaterials()) n = Math.min(n, player.getMainHandItem().getCount());
-        for (int i = 0; i < n; i++) use(mc, plan);
-        touched(mc, pos, world, job.target());
-        return n;
-    }
-
-    private static double compostChance(ItemStack s, Set<Item> needed) {
-        float chance = ComposterBlock.COMPOSTABLES.getFloat(s.getItem());
-        if (chance <= 0 || needed.contains(s.getItem())) return 0;
-        List<String> allowed = Configs.COMPOSTER_ITEMS.getStrings();
-        if (!allowed.isEmpty() && !COMPOST_ITEMS.matches(allowed, s.getItem())) return 0;
-        return chance;
     }
 
     /** Levers wait until nothing else in reach is left to place (they switch things on). */
@@ -945,7 +878,7 @@ public final class Printer {
     private static boolean continueMining(Minecraft mc) {
         LocalPlayer player = mc.player;
         BlockState state = mc.level.getBlockState(mining);
-        if (state.isAir() || !player.isWithinBlockInteractionRange(mining, Configs.EXTRA_REACH.getDoubleValue())
+        if (state.isAir() || !player.isWithinBlockInteractionRange(mining, 0.0)
                 || ticks - miningStart > MINING_TIMEOUT_TICKS || !Configs.FIX_WRONG_BLOCKS.getBooleanValue() && !Configs.CLEAR_EXTRA_BLOCKS.getBooleanValue()) {
             if (!state.isAir()) mc.gameMode.stopDestroyBlock();
             finishMining(mc);

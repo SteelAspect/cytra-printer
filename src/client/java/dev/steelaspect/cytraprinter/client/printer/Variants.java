@@ -1,6 +1,5 @@
 package dev.steelaspect.cytraprinter.client.printer;
 
-import dev.steelaspect.cytraprinter.client.mixin.AxeItemAccessor;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -28,7 +27,12 @@ final class Variants {
     static Block unstripped(Block stripped) {
         if (unstripped == null) {
             Map<Block, Block> m = new HashMap<>();
-            AxeItemAccessor.cytraprinter$strippables().forEach((from, to) -> m.putIfAbsent(to, from));
+            // 26.3: stripping is a data-driven block transformer, so pair "stripped_x" with "x" by id instead.
+            for (Block b : net.minecraft.core.registries.BuiltInRegistries.BLOCK) {
+                net.minecraft.resources.Identifier id = net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(b);
+                if (!id.getPath().startsWith("stripped_")) continue;
+                net.minecraft.core.registries.BuiltInRegistries.BLOCK.getOptional(id.withPath(id.getPath().substring(9))).ifPresent(plain -> m.put(b, plain));
+            }
             unstripped = m;
         }
         return unstripped.get(stripped);

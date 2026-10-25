@@ -24,9 +24,9 @@ public final class HudRenderer implements IRenderer {
     }
 
     @Override
-    public void onRenderGameOverlayPost(GuiContext ctx) {
+    public void onExtractGuiOverlayPost(GuiContext ctx, float partialTicks, net.minecraft.util.profiling.ProfilerFiller profiler) {
         Minecraft mc = Minecraft.getInstance();
-        if (!Configs.PRINTING.getBooleanValue() || !Configs.SHOW_HUD.getBooleanValue() || mc.options.hideGui || mc.player == null) return;
+        if (!Configs.PRINTING.getBooleanValue() || !Configs.SHOW_HUD.getBooleanValue() || mc.gui.hud.isHidden() || mc.player == null) return;
         List<String> lines = new ArrayList<>();
         List<Integer> colors = new ArrayList<>();
         add(lines, colors, StringUtils.translate(P + "status", Stats.perSecond(), Stats.remaining, Stats.placedTotal), 0xFFFFFFFF);
@@ -43,7 +43,7 @@ public final class HudRenderer implements IRenderer {
                     break;
                 }
                 if (sb.length() > 0) sb.append(", ");
-                sb.append(e.getKey().getName().getString()).append(" x").append(e.getValue());
+                sb.append(e.getKey().getName(e.getKey().getDefaultInstance()).getString()).append(" x").append(e.getValue());
             }
             add(lines, colors, StringUtils.translate(P + "missing", sb.toString()), 0xFFFF8040);
         }

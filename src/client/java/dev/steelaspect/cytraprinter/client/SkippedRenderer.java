@@ -41,16 +41,18 @@ public final class SkippedRenderer implements IRenderer {
     }
 
     @Override
-    public void onRenderWorldLast(Matrix4f posMatrix, Matrix4f projMatrix) {
+    public void onRenderWorldLast(com.mojang.blaze3d.pipeline.RenderTarget renderTarget, net.minecraft.client.renderer.state.level.CameraRenderState camera,
+                                  net.minecraft.client.renderer.culling.Frustum frustum, net.minecraft.client.renderer.RenderBuffers buffers,
+                                  com.mojang.renderpearl.api.buffers.GpuBufferSlice fog, org.joml.Vector4f fogColor, net.minecraft.util.profiling.ProfilerFiller profiler) {
         Minecraft mc = Minecraft.getInstance();
-        if (!Configs.SHOW_SKIPPED.getBooleanValue() || mc.player == null || mc.options.hideGui) return;
+        if (!Configs.SHOW_SKIPPED.getBooleanValue() || mc.player == null || mc.gui.hud.isHidden()) return;
         Skipped.checkLevel(mc.level);
         if (Skipped.size() == 0) return;
         List<Skipped.Spot> spots = Skipped.near(mc.player.getEyePosition(), Configs.SKIPPED_RANGE.getIntegerValue());
         if (spots.isEmpty()) return;
         BlockPos target = Skipped.target();
         try (RenderContext lines = new RenderContext(() -> CytraPrinter.MOD_ID + ":skipped/lines",
-                MaLiLibPipelines.DEBUG_LINES_MASA_SIMPLE_NO_DEPTH_NO_CULL)) {
+                MaLiLibPipelines.DEBUG_LINES_MASA_SIMPLE_NO_DEPTH_NO_CULL, 0)) {
             BufferBuilder buffer = lines.getBuilder();
             for (Skipped.Spot spot : spots) {
                 if (spot.pos().equals(target)) continue;

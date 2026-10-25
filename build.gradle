@@ -1,5 +1,5 @@
 plugins {
-    id 'fabric-loom' version "${loom_version}"
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
 version = project.mod_version
@@ -10,7 +10,7 @@ base {
 }
 
 repositories {
-    // Litematica and MaLiLib are only published to Modrinth for 1.21.11.
+    // Litematica and MaLiLib are only published to Modrinth.
     exclusiveContent {
         forRepository {
             maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' }
@@ -18,10 +18,6 @@ repositories {
         filter { includeGroup 'maven.modrinth' }
     }
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases/' }
-    // Alloy UI (theme + widget toolkit): ./gradlew publishToMavenLocal in ../alloy-ui
-    mavenLocal {
-        content { includeModule 'dev.steelaspect', 'alloy-ui' }
-    }
 }
 
 // src/main is the common + server part (the optional placement helper) and is all a dedicated server loads.
@@ -38,26 +34,15 @@ loom {
 
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
     // Client only at runtime; the jar never requires them on a server.
-    modImplementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
-    modImplementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
+    implementation "maven.modrinth:litematica:${project.litematica_modrinth_id}"
+    implementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
     // Optional: Mod Menu's config button opens the printer settings.
-    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 
-    // Nocturne settings screen; bundled jar-in-jar.
-    modImplementation "dev.steelaspect:alloy-ui:${project.alloyui_version}"
-    include "dev.steelaspect:alloy-ui:${project.alloyui_version}"
-
-    // Optional Alloy Hub page. Compile-only; only loaded when the Hub is installed.
-    modCompileOnly fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
-    // -PwithHub: dev runs/tests with Alloy Hub installed
-    if (project.hasProperty('withHub')) {
-        modLocalRuntime fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
-    }
 }
 
 // MaLiLib ships conditional-mixin as a jar-in-jar. Loom doesn't unpack nested jars of Maven mods for
@@ -80,7 +65,7 @@ if (!malilibNestedJar.exists()) {
 }
 dependencies {
     if (malilibNestedJar.exists()) {
-        modLocalRuntime files(malilibNestedJar)
+        localRuntime files(malilibNestedJar)
     }
 }
 
@@ -111,12 +96,12 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     it.options.encoding = 'UTF-8'
-    it.options.release = 21
+    it.options.release = 25
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_25
+    targetCompatibility = JavaVersion.VERSION_25
 }
 
 // CYTRA_PRINTER_DEBUG=1 logs every spot the printer can't solve during game tests.

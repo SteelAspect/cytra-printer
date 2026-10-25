@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(LocalPlayer.class)
 public abstract class LocalPlayerSignMixin {
     @Inject(method = "openTextEdit", at = @At("HEAD"), cancellable = true)
-    private void cytraprinter$signText(SignBlockEntity sign, boolean front, CallbackInfo ci) {
-        if (ClientHooks.onSignEditor(sign, front)) ci.cancel();
+    private void cytraprinter$signText(SignBlockEntity sign, net.minecraft.world.level.block.entity.SignTextSlot slot, CallbackInfo ci) {
+        if (ClientHooks.onSignEditor(sign, slot == net.minecraft.world.level.block.entity.SignTextSlot.FRONT)) ci.cancel();
     }
 }

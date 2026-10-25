@@ -2,7 +2,8 @@ package dev.steelaspect.cytraprinter.client;
 
 import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.config.Configs;
-import dev.steelaspect.cytraprinter.client.gui.PrinterSettingsScreen;
+import dev.steelaspect.cytraprinter.client.gui.GuiConfigs;
+import fi.dy.masa.malilib.gui.GuiBase;
 import fi.dy.masa.malilib.config.options.ConfigBooleanHotkeyed;
 import fi.dy.masa.malilib.config.options.ConfigHotkey;
 import fi.dy.masa.malilib.hotkeys.IHotkey;
@@ -40,7 +41,7 @@ public final class InputHandler implements IKeybindProvider, IHotkeyCallback {
     @Override
     public boolean onKeyAction(KeyAction action, IKeybind key) {
         if (key == Configs.OPEN_GUI.getKeybind()) {
-            net.minecraft.client.Minecraft.getInstance().setScreen(new PrinterSettingsScreen(null));
+            GuiBase.openGui(new GuiConfigs());
             return true;
         }
         if (key == Configs.NEXT_SKIPPED.getKeybind()) {

@@ -32,7 +32,6 @@ public final class Configs implements IConfigHandler {
     public static final ConfigBooleanHotkeyed PRINTING = new ConfigBooleanHotkeyed("printing", false, "").apply(PREFIX);
     public static final ConfigInteger PLACEMENTS_PER_TICK = new ConfigInteger("placementsPerTick", 8, 1, 64).apply(PREFIX);
     public static final ConfigInteger TICK_DELAY = new ConfigInteger("tickDelay", 0, 0, 20).apply(PREFIX);
-    public static final ConfigDouble EXTRA_REACH = new ConfigDouble("extraReach", 0.8, 0.0, 0.95).apply(PREFIX);
     public static final ConfigBoolean USE_SERVER_HELPER = new ConfigBoolean("useServerHelper", true).apply(PREFIX);
     public static final ConfigString HOTBAR_SLOTS = new ConfigString("hotbarSlots", "7,8,9").apply(PREFIX);
     public static final ConfigBoolean RESTOCK = new ConfigBoolean("restockFromContainerMod", true).apply(PREFIX);
@@ -43,7 +42,6 @@ public final class Configs implements IConfigHandler {
             PRINTING,
             PLACEMENTS_PER_TICK,
             TICK_DELAY,
-            EXTRA_REACH,
             USE_SERVER_HELPER,
             HOTBAR_SLOTS,
             RESTOCK,
@@ -80,8 +78,6 @@ public final class Configs implements IConfigHandler {
 
     // --- Extras ---
     public static final ConfigBoolean STRIP_LOGS = new ConfigBoolean("stripLogs", true).apply(PREFIX);
-    public static final ConfigBoolean COMPOSTER_LEVELS = new ConfigBoolean("composterLevels", true).apply(PREFIX);
-    public static final ConfigStringList COMPOSTER_ITEMS = new ConfigStringList("composterItems", ImmutableList.of()).apply(PREFIX);
     public static final ConfigBoolean LIVE_CORAL_FOR_DEAD = new ConfigBoolean("liveCoralForDead", true).apply(PREFIX);
     public static final ConfigBoolean CORAL_WAIT_FOR_WATER = new ConfigBoolean("coralWaitForWater", true).apply(PREFIX);
     public static final ConfigBoolean BREAK_BEDROCK = new ConfigBoolean("breakBedrock", false).apply(PREFIX);
@@ -89,8 +85,6 @@ public final class Configs implements IConfigHandler {
 
     public static final ImmutableList<IConfigBase> EXTRAS = ImmutableList.of(
             STRIP_LOGS,
-            COMPOSTER_LEVELS,
-            COMPOSTER_ITEMS,
             LIVE_CORAL_FOR_DEAD,
             CORAL_WAIT_FOR_WATER,
             BREAK_BEDROCK,

@@ -2,8 +2,7 @@ package dev.steelaspect.cytraprinter.test;
 
 import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.ServerHelper;
-import dev.steelaspect.cytraprinter.client.gui.PrinterOptions;
-import dev.steelaspect.cytraprinter.client.gui.PrinterSettingsScreen;
+import dev.steelaspect.cytraprinter.client.gui.GuiConfigs;
 import dev.steelaspect.cytraprinter.client.config.Configs;
 import dev.steelaspect.cytraprinter.client.printer.Skipped;
 import dev.steelaspect.cytraprinter.client.printer.Stats;
@@ -72,7 +71,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext context) {
         try (TestSingleplayerContext world = context.worldBuilder().create()) {
-            world.getClientWorld().waitForChunksRender();
+            world.getConnection().waitForChunksRender();
             world.getServer().runCommand("gamerule advance_time false");
             world.getServer().runCommand("gamerule spawn_mobs false");
             world.getServer().runCommand("gamerule block_drops false");
@@ -102,7 +101,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
                 return;
             }
 
-            // CYTRA_TEST_ONLY=extras runs just the extras (exclude, strip, composter, coral, bedrock, observers).
+            // CYTRA_TEST_ONLY=extras runs just the extras (exclude, strip, coral, bedrock, observers).
             if ("extras".equals(System.getenv("CYTRA_TEST_ONLY"))) {
                 extras(context, world, origin);
                 context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
@@ -266,7 +265,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
         }
         if (level.getBlockEntity(pos) instanceof SignBlockEntity sign) {
             String id = String.format(Locale.ROOT, "%d %d", pos.getX(), pos.getZ());
-            sign.updateText(t -> t.setMessage(0, Component.literal("Cytra")).setMessage(1, Component.literal(id)), true);
+            sign.updateText(t -> t.asMutable().setLine(0, Component.literal("Cytra")).setLine(1, Component.literal(id)).asImmutable(), net.minecraft.world.level.block.entity.SignTextSlot.FRONT);
             sign.setChanged();
         }
         return true;
@@ -274,13 +273,13 @@ public class PrinterClientGameTest implements FabricClientGameTest {
 
     private static List<Block> testBlocks() {
         return List.of(
-                Blocks.OAK_STAIRS, Blocks.OAK_SLAB, Blocks.OAK_LOG, Blocks.CHEST, Blocks.OAK_DOOR, Blocks.IRON_DOOR, Blocks.RED_BED,
+                Blocks.OAK_STAIRS, Blocks.OAK_SLAB, Blocks.OAK_LOG, Blocks.CHEST, Blocks.OAK_DOOR, Blocks.IRON_DOOR, Blocks.BED.red(),
                 Blocks.REPEATER, Blocks.COMPARATOR, Blocks.NOTE_BLOCK, Blocks.OBSERVER, Blocks.PISTON, Blocks.STICKY_PISTON,
                 Blocks.DISPENSER, Blocks.DROPPER, Blocks.HOPPER, Blocks.STONE_BUTTON, Blocks.LEVER, Blocks.OAK_TRAPDOOR,
                 Blocks.IRON_TRAPDOOR, Blocks.OAK_SIGN, Blocks.OAK_WALL_SIGN, Blocks.OAK_HANGING_SIGN, Blocks.OAK_WALL_HANGING_SIGN,
-                Blocks.WHITE_BANNER, Blocks.WHITE_WALL_BANNER, Blocks.SKELETON_SKULL, Blocks.SKELETON_WALL_SKULL, Blocks.LANTERN,
-                Blocks.IRON_CHAIN, Blocks.END_ROD, Blocks.LIGHTNING_ROD, Blocks.AMETHYST_CLUSTER, Blocks.GRINDSTONE, Blocks.BELL,
-                Blocks.LECTERN, Blocks.ANVIL, Blocks.WHITE_GLAZED_TERRACOTTA, Blocks.FURNACE, Blocks.BARREL, Blocks.CRAFTER,
+                Blocks.BANNER.white(), Blocks.WALL_BANNER.white(), Blocks.SKELETON_SKULL, Blocks.SKELETON_WALL_SKULL, Blocks.LANTERN,
+                Blocks.IRON_CHAIN, Blocks.END_ROD, Blocks.LIGHTNING_ROD.waxed().unaffected(), Blocks.AMETHYST_CLUSTER, Blocks.GRINDSTONE, Blocks.BELL,
+                Blocks.LECTERN, Blocks.ANVIL, Blocks.GLAZED_TERRACOTTA.white(), Blocks.FURNACE, Blocks.BARREL, Blocks.CRAFTER,
                 Blocks.LADDER, Blocks.TORCH, Blocks.WALL_TORCH, Blocks.REDSTONE_WALL_TORCH, Blocks.CANDLE, Blocks.SEA_PICKLE,
                 Blocks.SNOW, Blocks.CAMPFIRE, Blocks.OAK_FENCE_GATE, Blocks.POINTED_DRIPSTONE, Blocks.TRIPWIRE_HOOK,
                 Blocks.DAYLIGHT_DETECTOR, Blocks.POTTED_POPPY, Blocks.OAK_FENCE, Blocks.GLASS_PANE, Blocks.COBBLESTONE_WALL,
@@ -409,8 +408,8 @@ public class PrinterClientGameTest implements FabricClientGameTest {
                 if (!(server.overworld().getBlockEntity(c.pos()) instanceof SignBlockEntity sign)) continue;
                 total++;
                 String id = String.format(Locale.ROOT, "%d %d", c.pos().getX(), c.pos().getZ());
-                if (sign.getFrontText().getMessage(0, false).getString().equals("Cytra")
-                        && sign.getFrontText().getMessage(1, false).getString().equals(id)) ok++;
+                if (sign.getText(net.minecraft.world.level.block.entity.SignTextSlot.FRONT).getMessages(false).get(0).getString().equals("Cytra")
+                        && sign.getText(net.minecraft.world.level.block.entity.SignTextSlot.FRONT).getMessages(false).get(1).getString().equals(id)) ok++;
             }
             return new int[]{total, ok};
         });
@@ -515,7 +514,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
     // ---------------------------------------------------------------- extras
 
     /**
-     * Survival, vanilla mode: a stripped log from a plain log and an axe, composters filled to 5 and 8, dead coral
+     * Survival, vanilla mode: a stripped log from a plain log and an axe, composters placed (no fill levels), dead coral
      * from live coral, live coral held back without water, an excluded block, a protected wrong block, bedrock
      * broken with the piston trick (on a floor and with a slime block) and an observer that would fire a piston.
      */
@@ -567,7 +566,6 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             inv.setItem(9, new ItemStack(Items.OAK_LOG, 4));
             inv.setItem(10, new ItemStack(Items.IRON_AXE));
             inv.setItem(11, new ItemStack(Items.COMPOSTER, 2));
-            inv.setItem(12, new ItemStack(Items.PUMPKIN_PIE, 32));
             inv.setItem(13, new ItemStack(Items.BRAIN_CORAL_BLOCK, 2));
             inv.setItem(14, new ItemStack(Items.TUBE_CORAL_BLOCK, 2));
             inv.setItem(15, new ItemStack(Items.GOLD_BLOCK, 4));
@@ -588,7 +586,6 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             Configs.PROTECTED_BLOCKS.setStrings(List.of("emerald_block"));
             Configs.FIX_WRONG_BLOCKS.setBooleanValue(true);
             Configs.STRIP_LOGS.setBooleanValue(true);
-            Configs.COMPOSTER_LEVELS.setBooleanValue(true);
             Configs.LIVE_CORAL_FOR_DEAD.setBooleanValue(true);
             Configs.CORAL_WAIT_FOR_WATER.setBooleanValue(true);
             Configs.BREAK_BEDROCK.setBooleanValue(true);
@@ -598,7 +595,7 @@ public class PrinterClientGameTest implements FabricClientGameTest {
         context.waitTicks(10);
         context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
         for (int i = 0; i < 6; i++) settle(context);
-        context.waitTicks(120); // coral dies, composter 7 -> 8
+        context.waitTicks(120); // coral dies
         for (int i = 0; i < 2; i++) settle(context);
         LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("extras-printed")));
         context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
@@ -611,8 +608,8 @@ public class PrinterClientGameTest implements FabricClientGameTest {
         BlockState l = got.get(log);
         check(mode + ": stripped log from plain log + axe", l.is(Blocks.STRIPPED_OAK_LOG) && l.getValue(BlockStateProperties.AXIS) == Direction.Axis.X, l.toString());
         BlockState c5 = got.get(comp5), c8 = got.get(comp8);
-        check(mode + ": composter filled to 5", c5.is(Blocks.COMPOSTER) && c5.getValue(BlockStateProperties.LEVEL_COMPOSTER) == 5, c5.toString());
-        check(mode + ": composter filled to 8", c8.is(Blocks.COMPOSTER) && c8.getValue(BlockStateProperties.LEVEL_COMPOSTER) == 8, c8.toString());
+        // 26.3 port: no composter levels, the composters are just placed (the fill level isn't a placement property).
+        check(mode + ": composters placed", c5.is(Blocks.COMPOSTER) && c8.is(Blocks.COMPOSTER), c5 + " / " + c8);
         check(mode + ": dead coral from live coral", got.get(deadCoral).is(Blocks.DEAD_BRAIN_CORAL_BLOCK), got.get(deadCoral).toString());
         check(mode + ": live coral waits for water", got.get(liveCoral).isAir(), got.get(liveCoral).toString());
         check(mode + ": excluded block not placed", got.get(excluded).isAir(), got.get(excluded).toString());
@@ -639,30 +636,15 @@ public class PrinterClientGameTest implements FabricClientGameTest {
     }
 
     private void settings(ClientGameTestContext context, TestSingleplayerContext world) {
-        for (String tab : List.of("printer", "accuracy", "blocks", "extras")) {
-            context.runOnClient(client -> client.setScreen(PrinterSettingsScreen.onTab(null, tab)));
-            context.waitTicks(5);
-            boolean open = context.computeOnClient(client -> client.screen instanceof PrinterSettingsScreen);
-            check("settings screen " + tab, open, "screen not open");
-            LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("settings-" + tab)));
-        }
-        context.runOnClient(client -> client.setScreen(PrinterSettingsScreen.onTab(null, "printer")));
-        context.runOnClient(client -> client.setScreen(null));
+        // The MaLiLib settings screen opens.
+        context.runOnClient(client -> fi.dy.masa.malilib.gui.GuiBase.openGui(new GuiConfigs(null)));
+        context.waitTicks(5);
+        boolean open = context.computeOnClient(client -> client.gui.screen() instanceof GuiConfigs);
+        check("settings screen opens", open, "screen not open");
+        LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("settings")));
+        context.runOnClient(client -> client.gui.setScreen(null));
 
-        // Every option has a row, and list rows round-trip through the comma text.
-        int missing = context.computeOnClient(client -> {
-            int n = 0;
-            for (PrinterOptions.Group g : PrinterOptions.Group.values()) {
-                for (var option : g.options) if (PrinterOptions.rowFor(option) == null) n++;
-            }
-            return n;
-        });
-        check("settings rows for every option", missing == 0, missing + " options without a row");
-        List<String> split = PrinterOptions.splitList(" stone, #minecraft:logs ,, stone,glass ");
-        check("list text split", split.equals(List.of("stone", "#minecraft:logs", "glass")), split.toString());
-        check("list text join", PrinterOptions.joinList(split).equals("stone, #minecraft:logs, glass"), PrinterOptions.joinList(split));
-
-        // The Hub's Server tab switch: off reaches the client right away, on brings it back.
+        // The server helper switch: off reaches the client right away, on brings it back.
         world.getServer().runOnServer(server -> CytraPrinter.setHelperEnabled(server, false));
         context.waitTicks(10);
         String off = context.computeOnClient(client -> ServerHelper.statusKey());

@@ -20,14 +20,14 @@ public final class SkippedActions {
         Vec3 eye = mc.player.getEyePosition();
         Skipped.Spot spot = Skipped.next(eye);
         if (spot == null) {
-            mc.player.displayClientMessage(Component.translatable("cytraprinter.msg.skipped_none"), true);
+            mc.player.sendOverlayMessage(Component.translatable("cytraprinter.msg.skipped_none"));
             return;
         }
         Vec3 center = Vec3.atCenterOf(spot.pos());
         int dist = (int) Math.round(center.distanceTo(eye));
-        mc.player.displayClientMessage(Component.translatable("cytraprinter.msg.skipped_next",
+        mc.player.sendOverlayMessage(Component.translatable("cytraprinter.msg.skipped_next",
                 Component.translatable("cytraprinter.skipped." + spot.kind().key()),
-                spot.pos().getX(), spot.pos().getY(), spot.pos().getZ(), dist, Skipped.size()), true);
+                spot.pos().getX(), spot.pos().getY(), spot.pos().getZ(), dist, Skipped.size()));
         // While printing, the printer owns the view; it's outlined either way.
         if (!Configs.PRINTING.getBooleanValue()) mc.player.lookAt(EntityAnchorArgument.Anchor.EYES, center);
     }
@@ -35,6 +35,6 @@ public final class SkippedActions {
     public static void retry(Minecraft mc) {
         int n = Skipped.size();
         Printer.retrySkipped();
-        if (mc.player != null) mc.player.displayClientMessage(Component.translatable("cytraprinter.msg.skipped_retry", n), true);
+        if (mc.player != null) mc.player.sendOverlayMessage(Component.translatable("cytraprinter.msg.skipped_retry", n));
     }
 }

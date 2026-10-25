@@ -133,7 +133,7 @@ final class BedrockBreaker {
     }
 
     private static boolean inReach(Minecraft mc, BlockPos pos) {
-        return mc.player.isWithinBlockInteractionRange(pos, Configs.EXTRA_REACH.getDoubleValue());
+        return mc.player.isWithinBlockInteractionRange(pos, 0.0);
     }
 
     /** One tick of work on the current block. */

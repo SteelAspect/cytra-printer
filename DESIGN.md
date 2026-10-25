@@ -104,6 +104,17 @@ the same config.
   an intent for the aimed spot.
 - Breaking: the fastest tool, or a pickaxe when no tool beats a hand (glass), never a sword or a block in hand.
 
+## 26.3 port (branch `mc26.3`, folder ~/Documents/Mods/26.3/cytra-printer)
+- Toolchain: Loom 1.19.3 (`net.fabricmc.fabric-loom`, no remap, no mappings line), Loader 0.20.1, Fabric API
+  0.165.0+26.3, Java 25 (`~/.gradle/jdks/jdk-25.0.4.1+1`), Litematica 0.29.1 / MaLiLib 0.30.2, Mod Menu 21.0.0.
+- Left out on purpose (user's call): composter levels and extra reach.
+- No Alloy UI / Alloy Hub for 26.3 yet, so the settings are MaLiLib's tabbed `GuiConfigs` again. When those exist,
+  bring back `PrinterSettingsScreen`, `PrinterOptions` and the Hub page from `dev`.
+- API notes: `mc.gui.screen()`/`setScreen`, `sendOverlayMessage`/`sendSystemMessage`, `ContainerInput.SWAP` +
+  `handleContainerInput`, `SignTextSlot`, axes = `ItemTags.AXES` (stripping is a data-driven block transformer,
+  so stripped/plain pairs come from block ids), MaLiLib `onExtractGuiOverlayPost` / new `onRenderWorldLast` /
+  `registerInGameGuiRenderer`, `LayerRange` in `malilib.util.position`, Fabric `KeyMappingHelper`.
+
 ## Open ideas
 - Auto-craft missing items through Alloy Mass Craft (optional hook, like Restock).
 - A server GameTest for the helper.

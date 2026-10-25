@@ -4,7 +4,7 @@ import dev.steelaspect.cytraprinter.client.config.Configs;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -85,7 +85,7 @@ public final class Hotbar {
         LocalPlayer player = mc.player;
         int hotbar = pickSlot(player.getInventory());
         // Inventory menu slots 9-35 are the main inventory, same numbers as Inventory.
-        mc.gameMode.handleInventoryMouseClick(player.inventoryMenu.containerId, invSlot, hotbar, ClickType.SWAP, player);
+        mc.gameMode.handleContainerInput(player.inventoryMenu.containerId, invSlot, hotbar, ContainerInput.SWAP, player);
         player.getInventory().setSelectedSlot(hotbar);
     }
 
