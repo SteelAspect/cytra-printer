@@ -96,6 +96,12 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             // Skipped-block outlines, next and retry (CYTRA_TEST_ONLY=skipped: only this and the settings).
             skipped(context, world, origin.offset(-12, 0, 0));
             lagSafety(context, world, origin.offset(-24, 0, 0));
+            // Restock through Take It Out (only with -PwithTakeItOut; CYTRA_TEST_ONLY=takeitout runs just this).
+            if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("takeitout")) takeItOut(context, world, origin.offset(-36, 0, 0));
+            if ("takeitout".equals(System.getenv("CYTRA_TEST_ONLY"))) {
+                if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
+                return;
+            }
             if ("settings".equals(System.getenv("CYTRA_TEST_ONLY")) || "skipped".equals(System.getenv("CYTRA_TEST_ONLY"))) {
                 if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
                 return;
@@ -878,6 +884,55 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             ServerLevel level = server.overworld();
             for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
         });
+    }
+
+    /** Survival, no stone in the inventory, only a shulker box full of it: Take It Out pulls stacks and the build finishes. */
+    private void takeItOut(ClientGameTestContext context, TestSingleplayerContext world, BlockPos o) {
+        BlockPos max = o.offset(6, 2, 6);
+        int f = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        List<BlockPos> wanted = List.of(o.offset(1, 1, 1), o.offset(3, 1, 1), o.offset(5, 1, 1), o.offset(1, 1, 3), o.offset(3, 1, 3));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, p.getY() == o.getY() ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), f);
+            for (BlockPos p : wanted) level.setBlock(p, Blocks.GOLD_BLOCK.defaultBlockState(), f);
+        });
+        LitematicaSchematic schematic = world.getServer().computeOnServer(server -> capture(server, o, max, "takeitout"));
+        world.getServer().runOnServer(server -> clear(server, o, max));
+        world.getServer().runCommand("gamemode survival @a");
+        world.getServer().runOnServer(server -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            Inventory inv = p.getInventory();
+            inv.clearContent();
+            ItemStack box = new ItemStack(Items.SHULKER_BOX);
+            box.set(net.minecraft.core.component.DataComponents.CONTAINER,
+                    net.minecraft.world.item.component.ItemContainerContents.fromItems(List.of(new ItemStack(Items.DIRT, 64), new ItemStack(Items.GOLD_BLOCK, 64))));
+            inv.setItem(20, box);
+            p.getAbilities().mayfly = true;
+            p.getAbilities().flying = true;
+            p.onUpdateAbilities();
+            p.teleportTo(server.overworld(), o.getX() + 3.5, o.getY() + 3, o.getZ() + 2.5, Set.of(), 0f, 60f, true);
+        });
+        context.runOnClient(client -> {
+            Configs.USE_SERVER_HELPER.setBooleanValue(false);
+            Configs.RESTOCK.setBooleanValue(true);
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, o, "printer-takeitout", true, true), false);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+        for (int i = 0; i < 4; i++) settle(context);
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+        int placed = world.getServer().computeOnServer(server -> {
+            int n = 0;
+            for (BlockPos p : wanted) if (server.overworld().getBlockState(p).is(Blocks.GOLD_BLOCK)) n++;
+            return n;
+        });
+        check("take it out: gold pulled from the shulker box and placed", placed == wanted.size(), placed + "/" + wanted.size());
+        context.runOnClient(client -> DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
+        });
+        world.getServer().runCommand("gamemode creative @a");
     }
 
     private void check(String label, boolean ok, String detail) {

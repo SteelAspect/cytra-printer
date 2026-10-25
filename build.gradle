@@ -42,6 +42,10 @@ dependencies {
     implementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
     // Optional: Mod Menu's config button opens the printer settings.
     compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    // -PwithTakeItOut: dev runs/tests with Take It Out (optional restock from shulker boxes)
+    if (project.hasProperty('withTakeItOut')) {
+        localRuntime "maven.modrinth:takeitout:${project.takeitout_modrinth_id}"
+    }
 
 }
 

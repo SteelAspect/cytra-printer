@@ -43,6 +43,6 @@
     "malilib": ">=${malilib_version}"
   },
   "suggests": {
-    "containerautofill": "*"
+    "takeitout": "*"
   }
 }

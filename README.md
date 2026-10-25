@@ -5,6 +5,9 @@
 > - Settings are MaLiLib's own tabbed screen (Mod Menu, MaLiLib's config menu, Open Settings hotkey); there is no
 >   Alloy UI (Nocturne) screen and no Alloy Hub page yet, because Alloy UI and Alloy Hub have no 26.3 builds.
 > - Needs Litematica 0.29.1+ and MaLiLib 0.30.2+ for 26.3, Fabric Loader 0.20.1+, Java 25.
+> - Restocking works with the original **Take It Out** (rofumer, Modrinth `takeitout`) instead of Alloy Container: a
+>   missing block is pulled out of a shulker box in your inventory (Take It Out must be on the server too) or from
+>   Take It Out's linked containers. Optional; turn it off with *Restock With Take It Out*.
 
 A fast Litematica printer for Fabric 1.21.11 that doesn't place blocks wrong.
 

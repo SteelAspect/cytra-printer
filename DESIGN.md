@@ -110,6 +110,12 @@ the same config.
 - Left out on purpose (user's call): composter levels and extra reach.
 - No Alloy UI / Alloy Hub for 26.3 yet, so the settings are MaLiLib's tabbed `GuiConfigs` again. When those exist,
   bring back `PrinterSettingsScreen`, `PrinterOptions` and the Hub page from `dev`.
+- Restock uses the original Take It Out (rofumer, `takeitout` 1.1.29-26.3) instead of Alloy Container. It goes
+  through reflection, the same steps Take It Out's own printer mixins take: `Util.getShulkerWithStack`,
+  `ItemStackInventory.getInventoryFromShulker` + `Util.getSlotWithStack`, set `TakeitoutClient.awaitingStack`,
+  send `Takeitout$GetShulkerStackPayload(slotInShulker, shulkerSlot, SHULKER_SINGLE_ITEM_MODE)`, else
+  `WorldContainerSources.requestStack`. The printer pauses while `awaitingStack` isn't empty.
+  Test: `-PwithTakeItOut`, `CYTRA_TEST_ONLY=takeitout`.
 - API notes: `mc.gui.screen()`/`setScreen`, `sendOverlayMessage`/`sendSystemMessage`, `ContainerInput.SWAP` +
   `handleContainerInput`, `SignTextSlot`, axes = `ItemTags.AXES` (stripping is a data-driven block transformer,
   so stripped/plain pairs come from block ids), MaLiLib `onExtractGuiOverlayPost` / new `onRenderWorldLast` /

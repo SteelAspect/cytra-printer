@@ -201,6 +201,8 @@ public final class Printer {
         }
         delay = Configs.TICK_DELAY.getIntegerValue();
 
+        // Take It Out is bringing a stack out of a shulker box: don't touch the inventory until it's there.
+        if (Restock.busy()) return;
         // Survival mining in progress: keep at it, nothing else changes the held item meanwhile.
         if (mining != null && continueMining(mc)) return;
         // Bedrock breaking in progress: it owns the tick until its setup is cleared away again.
