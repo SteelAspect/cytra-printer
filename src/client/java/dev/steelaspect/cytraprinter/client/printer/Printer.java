@@ -86,7 +86,10 @@ public final class Printer {
 
     private static final int MAX_CLICKS_PER_TICK = 48;
     private static final int STUCK_TICKS = 600;
-    private static final long SOLVE_BUDGET_NANOS = 4_000_000L;
+    /** Placement search time per tick; the rest waits for the next tick so frames stay smooth. */
+    private static final long SOLVE_BUDGET_NANOS = 2_000_000L;
+    /** How long a spot found unplaceable is believed without searching again, if nothing around it changed. */
+    private static final int UNSOLVABLE_MEMO_TICKS = 200;
     private static final int MINING_TIMEOUT_TICKS = 200;
     /** The server sends the time every second; this long without it means it is lagging. */
     private static final long LAG_MILLIS = 2000;
@@ -110,6 +113,21 @@ public final class Printer {
     private static final Long2IntOpenHashMap lastAfter = new Long2IntOpenHashMap();
     /** Signs placed by the printer -> tick, for filling in their text. */
     private static final Long2LongOpenHashMap placedSigns = new Long2LongOpenHashMap();
+    /**
+     * Spots the full search found unplaceable, with what it depended on: the spot and its neighbours, where the
+     * player stood and the head yaw. Searching again is skipped until one of those changes (or the memo runs out),
+     * because a failed search is the most expensive thing the printer does.
+     */
+    private record Unsolved(int around, double x, double y, double z, float head, long until) {
+    }
+
+    private static final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Unsolved> unsolved = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
+
+    /** A search that ran out of time this tick: which attempt and step to resume at, if nothing changed. */
+    private record Partial(int around, double x, double y, double z, float head, int attempt, int unit) {
+    }
+
+    private static final it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<Partial> partial = new it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap<>();
 
     private static BlockPos mining;
     private static long miningStart;
@@ -124,6 +142,8 @@ public final class Printer {
         stuckUntil.clear();
         lastAfter.clear();
         placedSigns.clear();
+        unsolved.clear();
+        partial.clear();
         mining = null;
         BedrockBreaker.reset();
         Stats.reset();
@@ -136,6 +156,8 @@ public final class Printer {
         attempts.clear();
         stuckUntil.clear();
         lastAfter.clear();
+        unsolved.clear();
+        partial.clear();
         Skipped.clear();
     }
 
@@ -194,7 +216,9 @@ public final class Printer {
             return;
         }
 
+        long t0 = System.nanoTime();
         List<Job> jobs = scan(mc, schematic);
+        long t1 = System.nanoTime();
         int placed = 0;
         headVotes.clear();
         keepHead = false;
@@ -204,10 +228,12 @@ public final class Printer {
         } finally {
             Look.finish(mc, nextHead(player));
         }
+        long t2 = System.nanoTime();
         if (placed == 0) {
             breakBlocks(mc, jobs);
             if (mining == null) startBedrock(mc, jobs);
         }
+        Stats.timing(t1 - t0, t2 - t1, System.nanoTime() - t0);
     }
 
     public static void onUseItem() {
@@ -227,7 +253,6 @@ public final class Printer {
     /** Head yaws wanted by blocks that can't be placed with the current one, and whether a block still needs the current one. */
     private static final java.util.Map<Float, Integer> headVotes = new java.util.HashMap<>();
     private static boolean keepHead;
-    private static final int HEAD_LOOKUPS_PER_TICK = 6;
 
     /**
      * Stay on the current head yaw while something still needs it, otherwise turn to the most wanted one. With
@@ -508,12 +533,22 @@ public final class Printer {
 
         boolean helper = ServerHelper.active();
         int budget = Configs.PLACEMENTS_PER_TICK.getIntegerValue();
-        int placed = 0;
         long deadline = System.nanoTime() + SOLVE_BUDGET_NANOS;
+        PlacementSolver.deadline = deadline;
+        try {
+            return placeJobs(mc, schematic, places, held, helper, budget, deadline);
+        } finally {
+            PlacementSolver.deadline = Long.MAX_VALUE;
+        }
+    }
+
+    private static int placeJobs(Minecraft mc, WorldSchematic schematic, List<Job> places, Item held, boolean helper, int budget, long deadline) {
+        LocalPlayer player = mc.player;
+        ClientLevel level = mc.level;
+        int placed = 0;
         List<Item> missing = new ArrayList<>();
         float head = Look.headYaw;
         boolean settled = Look.headSettled();
-        int headLookups = 0;
         for (Job job : places) {
             if (placed >= budget || System.nanoTime() > deadline) break;
             BlockPos pos = job.pos();
@@ -542,31 +577,65 @@ public final class Printer {
             BlockPos partner = StateRules.chestPartner(pos, target);
             boolean partnerPresent = partner != null && level.getBlockState(partner).is(target.getBlock());
             BlockItem item = (BlockItem) job.item();
-            PlacePlan plan = PlacementSolver.solve(level, player, pos, world, target, item, partnerPresent, true, head);
-            if (plan != null && !settled && !PlacementSolver.headIndependent(level, player, plan, world, target, item, partnerPresent)) {
+            int around = around(level, pos);
+            Vec3 eye = player.getEyePosition();
+            Unsolved memo = unsolved.get(pos.asLong());
+            if (memo != null && memo.until() > ticks && memo.around() == around && Math.abs(memo.head() - head) < 1f
+                    && eye.distanceToSqr(memo.x(), memo.y(), memo.z()) < 0.0625) {
+                Stats.unsolvable++;
+                Skipped.mark(pos, Skipped.Kind.UNSOLVABLE);
+                continue;
+            }
+            // The searches for this spot, in order: the exact block at the current head yaw; then (vanilla) the other
+            // cardinal head yaws, which become a vote for turning the head; or (helper) the right block in any
+            // orientation. A search that runs out of time resumes here next tick where it stopped.
+            float[] heads = helper ? new float[]{head, head} : otherHeads(head);
+            Partial part = partial.get(pos.asLong());
+            if (part != null && !(part.around() == around && Math.abs(part.head() - head) < 1f
+                    && eye.distanceToSqr(part.x(), part.y(), part.z()) < 0.0625)) part = null;
+            int attempt = part == null ? 0 : part.attempt();
+            int skip = part == null ? 0 : part.unit();
+            PlacePlan plan = null;
+            boolean timedOut = false;
+            for (; attempt < heads.length; attempt++, skip = 0) {
+                boolean exact = !(helper && attempt == 1);
+                PlacementSolver.timedOut = false;
+                PlacePlan p = PlacementSolver.solve(level, player, pos, world, target, item, partnerPresent, exact, heads[attempt], skip);
+                if (PlacementSolver.timedOut) {
+                    partial.put(pos.asLong(), new Partial(around, eye.x, eye.y, eye.z, head, attempt, PlacementSolver.resumeUnit));
+                    timedOut = true;
+                    break;
+                }
+                if (p != null) {
+                    plan = p;
+                    break;
+                }
+            }
+            // Out of search time: the rest waits for the next tick.
+            if (timedOut) break;
+            partial.remove(pos.asLong());
+            if (plan != null && attempt > 0 && !helper) {
+                // Placeable, but only with the head turned: vote for that yaw.
+                headVotes.merge(heads[attempt], 1, Integer::sum);
+                Stats.held++;
+                continue;
+            }
+            if (plan != null && attempt == 0 && !settled && !PlacementSolver.headIndependent(level, player, plan, world, target, item, partnerPresent)) {
                 // Right only with the head on this yaw, and the server's head may not be there yet.
                 keepHead = true;
                 Stats.held++;
                 continue;
             }
-            if (plan != null && settled && !helper) keepHead |= !PlacementSolver.headIndependent(level, player, plan, world, target, item, partnerPresent);
-            if (plan == null && !helper && headLookups < HEAD_LOOKUPS_PER_TICK) {
-                headLookups++;
-                float want = PlacementSolver.headYawFor(level, player, pos, world, target, item, partnerPresent, head);
-                if (!Float.isNaN(want)) {
-                    headVotes.merge(want, 1, Integer::sum);
-                    Stats.held++;
-                    continue;
-                }
-            }
-            if (plan == null && helper) plan = PlacementSolver.solve(level, player, pos, world, target, item, partnerPresent, false, head);
+            if (plan != null && attempt == 0 && settled && !helper) keepHead |= !PlacementSolver.headIndependent(level, player, plan, world, target, item, partnerPresent);
             if (plan == null) {
+                unsolved.put(pos.asLong(), new Unsolved(around, eye.x, eye.y, eye.z, head, ticks + UNSOLVABLE_MEMO_TICKS));
                 if (DEBUG) debugUnsolvable(level, pos, world, target);
                 Stats.unsolvable++;
                 Skipped.mark(pos, Skipped.Kind.UNSOLVABLE);
                 waitUntil.put(pos.asLong(), ticks + 20);
                 continue;
             }
+            unsolved.remove(pos.asLong());
             if (!Hotbar.select(mc, item)) continue;
             if (helper) ClientPlayNetworking.send(new IntentPayload(pos, target));
             use(mc, plan);
@@ -936,7 +1005,29 @@ public final class Printer {
         return Math.max(3, Math.min(40, (int) Math.ceil(ping * 2.0 / 50.0) + 3));
     }
 
+    /** The current head yaw first, then the other three cardinal yaws (vanilla mode turns the head for those). */
+    private static float[] otherHeads(float head) {
+        float[] out = new float[4];
+        out[0] = head;
+        int n = 1;
+        for (int i = 0; i < 4 && n < 4; i++) {
+            float h = PlacementSolver.wrap(i * 90f);
+            if (Math.abs(PlacementSolver.wrap(h - head)) >= 1f) out[n++] = h;
+        }
+        return n == 4 ? out : java.util.Arrays.copyOf(out, n);
+    }
+
+    /** Fingerprint of a spot and its six neighbours, which is what a placement there can depend on. */
+    private static int around(ClientLevel level, BlockPos pos) {
+        int h = Block.getId(level.getBlockState(pos));
+        BlockPos.MutableBlockPos m = new BlockPos.MutableBlockPos();
+        for (Direction d : Direction.values()) h = h * 31 + Block.getId(level.getBlockState(m.setWithOffset(pos, d)));
+        return h;
+    }
+
     private static void prune() {
+        unsolved.long2ObjectEntrySet().removeIf(e -> e.getValue().until() < ticks);
+        partial.clear();
         waitUntil.long2LongEntrySet().removeIf(e -> e.getLongValue() < ticks);
         stuckUntil.long2LongEntrySet().removeIf(e -> e.getLongValue() < ticks);
         placedSigns.long2LongEntrySet().removeIf(e -> ticks - e.getLongValue() > 200);

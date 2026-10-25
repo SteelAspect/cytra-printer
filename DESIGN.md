@@ -82,6 +82,18 @@ the same config.
   Next turns the view only while printing is off, because the printer owns the view otherwise.
   The Hub status shows the counts.
 
+## Frame time (1.3.1)
+- The printer tick runs on the client thread, so its cost lands on a frame. Measured with
+  `CYTRA_TEST_ONLY=perf`: `Stats.timingSummary()` gives scan/place/tick avg, p95 and max.
+- Scanning is cheap (~0.1 ms). The expensive part is a *failed* placement search: up to about 800 simulated clicks,
+  about 1600 for rotation-16 blocks like signs, times 4 head yaws in vanilla mode.
+- Placement search gets 2 ms per tick (`SOLVE_BUDGET_NANOS`). A search that runs out of time resumes next tick
+  where it stopped (`Partial`: attempt + step), so long searches still finish.
+- A spot found unplaceable is not searched again (`Unsolved` memo, up to 10 s) while the spot and its six
+  neighbours, the player's eye position (within 0.25 blocks) and the head yaw stay the same.
+- 1.3.0 → 1.3.1 on the big test build: worst tick while printing went from 25 ms to 2.5–5 ms. Standing at a finished
+  build went from 6.5 ms p95 to 0.27 ms.
+
 ## Open ideas
 - Auto-craft missing items through Alloy Mass Craft (optional hook, like Restock).
 - A server GameTest for the helper.

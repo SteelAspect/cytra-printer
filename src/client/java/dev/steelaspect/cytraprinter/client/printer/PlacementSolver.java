@@ -43,8 +43,38 @@ public final class PlacementSolver {
      * @param headYaw the server's head yaw: blocks that place by the "nearest looking direction" (pistons,
      *                observers, wall torches, buttons...) read the head, which can't be turned within a tick
      */
+    /**
+     * Time limit for searches (System.nanoTime), so one tick never stalls the frame. A search that hits it returns
+     * null with {@link #timedOut} set, which means "not finished", not "can't be placed".
+     */
+    static long deadline = Long.MAX_VALUE;
+    static boolean timedOut;
+    /** After a timeout: the step to pass as {@code skip} to carry on where the search stopped. */
+    static int resumeUnit;
+
+    /** Longest full (unsuccessful, not timed out) search so far and how many ran, for the perf test. */
+    public static long slowestFailNanos, fails;
+
     public static PlacePlan solve(Level level, LocalPlayer player, BlockPos pos, BlockState current, BlockState target,
                                   BlockItem item, boolean partnerPresent, boolean exact, float headYaw) {
+        return solve(level, player, pos, current, target, item, partnerPresent, exact, headYaw, 0);
+    }
+
+    /** {@code skip}: steps (one look, sneaking or not) already tried by an earlier, timed-out call. */
+    public static PlacePlan solve(Level level, LocalPlayer player, BlockPos pos, BlockState current, BlockState target,
+                                  BlockItem item, boolean partnerPresent, boolean exact, float headYaw, int skip) {
+        long t0 = System.nanoTime();
+        PlacePlan plan = search(level, player, pos, current, target, item, partnerPresent, exact, headYaw, skip);
+        if (plan == null && !timedOut) {
+            fails++;
+            slowestFailNanos = Math.max(slowestFailNanos, System.nanoTime() - t0);
+        }
+        return plan;
+    }
+
+    private static PlacePlan search(Level level, LocalPlayer player, BlockPos pos, BlockState current, BlockState target,
+                                    BlockItem item, boolean partnerPresent, boolean exact, float headYaw, int skip) {
+        int unit = 0;
         ItemStack stack = new ItemStack(item);
         List<Look> looks = looks(target, player);
         float yaw = player.getYRot(), pitch = player.getXRot();
@@ -57,6 +87,12 @@ public final class PlacementSolver {
             for (int s = 0; s < 2; s++) {
                 boolean sneak = s == 1;
                 for (Look look : looks) {
+                    if (unit++ < skip) continue;
+                    if (System.nanoTime() > deadline) {
+                        timedOut = true;
+                        resumeUnit = unit - 1;
+                        return null;
+                    }
                     player.setYRot(look.yaw());
                     player.setXRot(look.pitch());
                     player.yRotO = look.yaw();
@@ -115,17 +151,6 @@ public final class PlacementSolver {
             player.yHeadRotO = headO;
             ClientHooks.simulatedHeadYaw = Float.NaN;
         }
-    }
-
-    /** A cardinal head yaw (other than {@code currentHead}) that makes the target placeable, or NaN. */
-    public static float headYawFor(Level level, LocalPlayer player, BlockPos pos, BlockState current, BlockState target,
-                                   BlockItem item, boolean partnerPresent, float currentHead) {
-        for (int i = 0; i < 4; i++) {
-            float h = wrap(i * 90f);
-            if (Math.abs(wrap(h - currentHead)) < 1f) continue;
-            if (solve(level, player, pos, current, target, item, partnerPresent, true, h) != null) return h;
-        }
-        return Float.NaN;
     }
 
     /** What vanilla would place for this click, or null if it would place nothing / somewhere else. */

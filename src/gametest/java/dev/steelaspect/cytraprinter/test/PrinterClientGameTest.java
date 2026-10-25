@@ -117,6 +117,12 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             LitematicaSchematic schematic = world.getServer().computeOnServer(server -> capture(server, origin, max, "all-states"));
 
             world.getServer().runCommand("gamemode creative @a");
+            // CYTRA_TEST_ONLY=perf: printer tick cost while printing, idle on a finished build, and out of blocks.
+            if ("perf".equals(System.getenv("CYTRA_TEST_ONLY"))) {
+                perf(context, world, origin, size, schematic);
+                if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
+                return;
+            }
             for (boolean helper : new boolean[]{true, false}) {
                 String mode = helper ? "creative+helper" : "creative+vanilla";
                 world.getServer().runOnServer(server -> clear(server, origin, max));
@@ -138,10 +144,14 @@ public class PrinterClientGameTest implements FabricClientGameTest {
 
                 long start = System.nanoTime();
                 long placedBefore = context.computeOnClient(c -> Stats.placedTotal);
-                context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+                context.runOnClient(client -> {
+                    Stats.resetTiming();
+                    Configs.PRINTING.setBooleanValue(true);
+                });
                 walk(context, world, origin, size);
                 walk(context, world, origin, size);
                 context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+                LOG.info("{}: printer cost {}", mode, timing(context));
                 double secs = (System.nanoTime() - start) / 1e9;
                 long placed = context.computeOnClient(c -> Stats.placedTotal) - placedBefore;
                 LOG.info("{}: {} placements in {} s", mode, placed, String.format(Locale.ROOT, "%.1f", secs));
@@ -718,6 +728,90 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             ServerLevel level = server.overworld();
             for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
         });
+    }
+
+    private void perf(ClientGameTestContext context, TestSingleplayerContext world, BlockPos origin, int[] size, LitematicaSchematic schematic) {
+        BlockPos max = origin.offset(size[0] - 1, 3, size[1] - 1);
+        double cx = origin.getX() + size[0] / 2.0, cz = origin.getZ() + size[1] / 2.0;
+        context.runOnClient(client -> {
+            Configs.USE_SERVER_HELPER.setBooleanValue(false);
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, origin, "printer-perf", true, true), false);
+        });
+        world.getServer().runOnServer(server -> clear(server, origin, max));
+        context.waitTicks(10);
+
+        // 1. Printing the big build (creative, vanilla mode).
+        context.runOnClient(client -> {
+            Stats.resetTiming();
+            Configs.PRINTING.setBooleanValue(true);
+        });
+        walk(context, world, origin, size);
+        LOG.info("PERF printing: {}", timing(context));
+
+        // 2. Idle: standing in the finished build.
+        world.getServer().runOnServer(server -> server.getPlayerList().getPlayers().get(0)
+                .teleportTo(server.overworld(), cx, origin.getY() + 3, cz, Set.of(), 0f, 60f, true));
+        context.waitTicks(40);
+        context.runOnClient(client -> Stats.resetTiming());
+        context.waitTicks(200);
+        LOG.info("PERF idle (build done): {}", timing(context));
+
+        // 3. Out of blocks: survival, empty inventory, in the middle of an empty build.
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+        world.getServer().runOnServer(server -> clear(server, origin, max));
+        world.getServer().runCommand("gamemode survival @a");
+        world.getServer().runOnServer(server -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            p.getInventory().clearContent();
+            p.getAbilities().mayfly = true;
+            p.getAbilities().flying = true;
+            p.onUpdateAbilities();
+            p.teleportTo(server.overworld(), cx, origin.getY() + 3, cz, Set.of(), 0f, 60f, true);
+        });
+        context.waitTicks(20);
+        context.runOnClient(client -> {
+            Stats.resetTiming();
+            Configs.PRINTING.setBooleanValue(true);
+        });
+        context.waitTicks(200);
+        LOG.info("PERF no blocks: {}", timing(context));
+
+        // 4. Survival with blocks: every item the build needs, a stack each.
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+        world.getServer().runOnServer(server -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            Inventory inv = p.getInventory();
+            java.util.Set<net.minecraft.world.item.Item> items = new java.util.LinkedHashSet<>();
+            for (BlockPos pos : BlockPos.betweenClosed(origin, max)) {
+                var it = schematicState(server, pos).getBlock().asItem();
+                if (it != Items.AIR) items.add(it);
+            }
+            int slot = 9;
+            for (var it : items) if (slot < 36) inv.setItem(slot++, new ItemStack(it, 64));
+        });
+        context.waitTicks(5);
+        context.runOnClient(client -> {
+            Stats.resetTiming();
+            Configs.PRINTING.setBooleanValue(true);
+        });
+        context.waitTicks(200);
+        LOG.info("PERF survival printing: {}", timing(context));
+
+        context.runOnClient(client -> {
+            Configs.PRINTING.setBooleanValue(false);
+            DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic);
+        });
+        world.getServer().runCommand("gamemode creative @a");
+    }
+
+    private static String timing(ClientGameTestContext context) {
+        String s = context.computeOnClient(c -> Stats.timingSummary());
+        return s;
+    }
+
+    private static BlockState schematicState(MinecraftServer server, BlockPos pos) {
+        var w = fi.dy.masa.litematica.world.SchematicWorldHandler.getSchematicWorld();
+        return w == null ? Blocks.AIR.defaultBlockState() : w.getBlockState(pos);
     }
 
     private void check(String label, boolean ok, String detail) {
