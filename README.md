@@ -2,8 +2,7 @@
 
 > **Minecraft 26.3 port** (branch `mc26.3`). Differences from the 1.21.11 version:
 > - No **Composter Levels** (26.3 reworked composting) and no **Extra Reach**: the printer stays within your normal reach.
-> - Settings are MaLiLib's own tabbed screen (Mod Menu, MaLiLib's config menu, Open Settings hotkey); there is no
->   Alloy UI (Nocturne) screen and no Alloy Hub page yet, because Alloy UI and Alloy Hub have no 26.3 builds.
+> - Settings: the Nocturne screen and the Alloy Hub page, like 1.21.11 (Alloy UI 1.4.0+26.3 bundled, Hub 0.7.3+26.3).
 > - Needs Litematica 0.29.1+ and MaLiLib 0.30.2+ for 26.3, Fabric Loader 0.20.1+, Java 25.
 > - Restocking works with the original **Take It Out** (rofumer, Modrinth `takeitout`) instead of Alloy Container: a
 >   missing block is pulled out of a shulker box in your inventory (Take It Out must be on the server too) or from

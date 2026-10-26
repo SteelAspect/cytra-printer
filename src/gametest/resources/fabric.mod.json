@@ -3,11 +3,14 @@
   "id": "cytraprinter-test",
   "version": "1.0.0",
   "name": "Alloy Printer (client game tests)",
-  "authors": ["steelaspect"],
+  "authors": [
+    "steelaspect"
+  ],
   "environment": "client",
   "entrypoints": {
     "fabric-client-gametest": [
-      "dev.steelaspect.cytraprinter.test.PrinterClientGameTest"
+      "dev.steelaspect.cytraprinter.test.PrinterClientGameTest",
+      "dev.steelaspect.cytraprinter.test.HubPageGameTest"
     ]
   },
   "depends": {

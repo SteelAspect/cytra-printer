@@ -2,7 +2,8 @@ package dev.steelaspect.cytraprinter.test;
 
 import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.ServerHelper;
-import dev.steelaspect.cytraprinter.client.gui.GuiConfigs;
+import dev.steelaspect.cytraprinter.client.gui.PrinterOptions;
+import dev.steelaspect.cytraprinter.client.gui.PrinterSettingsScreen;
 import dev.steelaspect.cytraprinter.client.config.Configs;
 import dev.steelaspect.cytraprinter.client.printer.Skipped;
 import dev.steelaspect.cytraprinter.client.printer.Stats;
@@ -642,13 +643,28 @@ public class PrinterClientGameTest implements FabricClientGameTest {
     }
 
     private void settings(ClientGameTestContext context, TestSingleplayerContext world) {
-        // The MaLiLib settings screen opens.
-        context.runOnClient(client -> fi.dy.masa.malilib.gui.GuiBase.openGui(new GuiConfigs(null)));
-        context.waitTicks(5);
-        boolean open = context.computeOnClient(client -> client.gui.screen() instanceof GuiConfigs);
-        check("settings screen opens", open, "screen not open");
-        LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("settings")));
+        for (String tab : List.of("printer", "accuracy", "blocks", "extras")) {
+            context.runOnClient(client -> client.gui.setScreen(PrinterSettingsScreen.onTab(null, tab)));
+            context.waitTicks(5);
+            boolean open = context.computeOnClient(client -> client.gui.screen() instanceof PrinterSettingsScreen);
+            check("settings screen " + tab, open, "screen not open");
+            LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("settings-" + tab)));
+        }
+        context.runOnClient(client -> client.gui.setScreen(PrinterSettingsScreen.onTab(null, "printer")));
         context.runOnClient(client -> client.gui.setScreen(null));
+
+        // Every option has a row, and list rows round-trip through the comma text.
+        int missing = context.computeOnClient(client -> {
+            int n = 0;
+            for (PrinterOptions.Group g : PrinterOptions.Group.values()) {
+                for (var option : g.options) if (PrinterOptions.rowFor(option) == null) n++;
+            }
+            return n;
+        });
+        check("settings rows for every option", missing == 0, missing + " options without a row");
+        List<String> split = PrinterOptions.splitList(" stone, #minecraft:logs ,, stone,glass ");
+        check("list text split", split.equals(List.of("stone", "#minecraft:logs", "glass")), split.toString());
+        check("list text join", PrinterOptions.joinList(split).equals("stone, #minecraft:logs, glass"), PrinterOptions.joinList(split));
 
         // The server helper switch: off reaches the client right away, on brings it back.
         world.getServer().runOnServer(server -> CytraPrinter.setHelperEnabled(server, false));

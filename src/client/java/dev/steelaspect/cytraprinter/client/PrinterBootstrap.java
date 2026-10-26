@@ -2,7 +2,7 @@ package dev.steelaspect.cytraprinter.client;
 
 import dev.steelaspect.cytraprinter.CytraPrinter;
 import dev.steelaspect.cytraprinter.client.config.Configs;
-import dev.steelaspect.cytraprinter.client.gui.GuiConfigs;
+import dev.steelaspect.cytraprinter.client.gui.SettingsRedirect;
 import dev.steelaspect.cytraprinter.client.printer.Printer;
 import dev.steelaspect.cytraprinter.client.printer.SignText;
 import fi.dy.masa.malilib.config.ConfigManager;
@@ -27,7 +27,7 @@ final class PrinterBootstrap {
         InitializationHandler.getInstance().registerInitializationHandler(() -> {
             Configs.INSTANCE.load();
             ConfigManager.getInstance().registerConfigHandler(CytraPrinter.MOD_ID, Configs.INSTANCE);
-            Registry.CONFIG_SCREEN.registerConfigScreenFactory(new ModInfo(CytraPrinter.MOD_ID, CytraPrinter.MOD_NAME, GuiConfigs::new));
+            Registry.CONFIG_SCREEN.registerConfigScreenFactory(new ModInfo(CytraPrinter.MOD_ID, CytraPrinter.MOD_NAME, SettingsRedirect::new));
             InputEventHandler.getKeybindManager().registerKeybindProvider(InputHandler.INSTANCE);
             RenderEventHandler.getInstance().registerInGameGuiRenderer(HudRenderer.INSTANCE);
             RenderEventHandler.getInstance().registerWorldLastRenderer(SkippedRenderer.INSTANCE);

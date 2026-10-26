@@ -18,6 +18,10 @@ repositories {
         filter { includeGroup 'maven.modrinth' }
     }
     maven { name = 'TerraformersMC'; url = 'https://maven.terraformersmc.com/releases/' }
+    // Alloy UI 26.3 (theme + widget toolkit): ./gradlew publishToMavenLocal in ../alloy-ui (branch mc26.3)
+    mavenLocal {
+        content { includeModule 'dev.steelaspect', 'alloy-ui' }
+    }
 }
 
 // src/main is the common + server part (the optional placement helper) and is all a dedicated server loads.
@@ -42,6 +46,17 @@ dependencies {
     implementation "maven.modrinth:malilib:${project.malilib_modrinth_id}"
     // Optional: Mod Menu's config button opens the printer settings.
     compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+    // Nocturne settings screen; bundled jar-in-jar.
+    implementation "dev.steelaspect:alloy-ui:${project.alloyui_version}"
+    include "dev.steelaspect:alloy-ui:${project.alloyui_version}"
+
+    // Optional Alloy Hub page. Compile-only; only loaded when the Hub is installed.
+    compileOnly fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
+    // -PwithHub: dev runs/tests with Alloy Hub installed
+    if (project.hasProperty('withHub')) {
+        localRuntime fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
+    }
     // -PwithTakeItOut: dev runs/tests with Take It Out (optional restock from shulker boxes)
     if (project.hasProperty('withTakeItOut')) {
         localRuntime "maven.modrinth:takeitout:${project.takeitout_modrinth_id}"
@@ -83,6 +98,11 @@ fabricApi {
         eula = true
         clearRunDirectory = true
     }
+}
+
+// The Hub page test compiles against the Hub jar too (it only runs with -PwithHub).
+dependencies {
+    gametestCompileOnly fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
 }
 
 processResources {

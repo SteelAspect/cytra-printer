@@ -108,8 +108,8 @@ the same config.
 - Toolchain: Loom 1.19.3 (`net.fabricmc.fabric-loom`, no remap, no mappings line), Loader 0.20.1, Fabric API
   0.165.0+26.3, Java 25 (`~/.gradle/jdks/jdk-25.0.4.1+1`), Litematica 0.29.1 / MaLiLib 0.30.2, Mod Menu 21.0.0.
 - Left out on purpose (user's call): composter levels and extra reach.
-- No Alloy UI / Alloy Hub for 26.3 yet, so the settings are MaLiLib's tabbed `GuiConfigs` again. When those exist,
-  bring back `PrinterSettingsScreen`, `PrinterOptions` and the Hub page from `dev`.
+- Settings (2026-10-26): Nocturne `PrinterSettingsScreen` on Alloy UI 1.4.0+26.3 (mavenLocal, jar-in-jar) and the Hub
+  page against `libs/alloy-hub-0.7.3+26.3.jar` (compile-only, `-PwithHub` for tests, `HubPageGameTest`), same as 1.21.11.
 - Restock uses the original Take It Out (rofumer, `takeitout` 1.1.29-26.3) instead of Alloy Container. It goes
   through reflection, the same steps Take It Out's own printer mixins take: `Util.getShulkerWithStack`,
   `ItemStackInventory.getInventoryFromShulker` + `Util.getSlotWithStack`, set `TakeitoutClient.awaitingStack`,

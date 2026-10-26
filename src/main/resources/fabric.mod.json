@@ -23,6 +23,9 @@
     ],
     "modmenu": [
       "dev.steelaspect.cytraprinter.client.ModMenuIntegration"
+    ],
+    "cytra-hub": [
+      "dev.steelaspect.cytraprinter.client.compat.HubPlugin"
     ]
   },
   "mixins": [
@@ -36,13 +39,15 @@
     "fabricloader": ">=0.17.0",
     "minecraft": "${minecraft_version}",
     "java": ">=25",
-    "fabric-api": "*"
+    "fabric-api": "*",
+    "alloy-ui": ">=1.4.0"
   },
   "recommends": {
     "litematica": ">=${litematica_version}",
     "malilib": ">=${malilib_version}"
   },
   "suggests": {
-    "takeitout": "*"
+    "takeitout": "*",
+    "cytra-hub": "*"
   }
 }
