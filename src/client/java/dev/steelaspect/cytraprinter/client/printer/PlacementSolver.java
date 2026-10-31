@@ -84,7 +84,9 @@ public final class PlacementSolver {
         player.yHeadRotO = headYaw;
         ClientHooks.simulatedHeadYaw = headYaw;
         try {
-            for (int s = 0; s < 2; s++) {
+            // With Rail Placement Fix, rails are only placed sneaking: that picks the shape and leaves neighbours alone.
+            boolean railFix = StateRules.exactRailShape(target);
+            for (int s = railFix ? 1 : 0; s < 2; s++) {
                 boolean sneak = s == 1;
                 for (Look look : looks) {
                     if (unit++ < skip) continue;
@@ -160,10 +162,21 @@ public final class PlacementSolver {
         BlockItemInvoker invoker = (BlockItemInvoker) item;
         BlockPlaceContext updated = invoker.cytraprinter$updatePlacementContext(ctx);
         if (updated == null || !updated.getClickedPos().equals(pos)) return null;
+        // Rail Placement Fix reads the player's sneak key (LocalPlayer.isShiftKeyDown is the input), not the context's.
+        boolean rail = item.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock && RailFix.active();
+        net.minecraft.world.entity.player.Input keys = player.input.keyPresses;
+        if (rail && keys.shift() != sneak) {
+            player.input.keyPresses = new net.minecraft.world.entity.player.Input(keys.forward(), keys.backward(), keys.left(), keys.right(), keys.jump(), sneak, keys.sprint());
+        }
         try {
             return invoker.cytraprinter$getPlacementState(updated);
         } catch (RuntimeException e) {
             return null;
+        } finally {
+            if (rail) {
+                player.input.keyPresses = keys;
+                RailFix.clearAfterSimulation();
+            }
         }
     }
 

@@ -1,5 +1,7 @@
 package dev.steelaspect.cytraprinter.client.printer;
 
+import dev.steelaspect.cytraprinter.CytraPrinter;
+
 import dev.steelaspect.cytraprinter.client.ClientHooks;
 import dev.steelaspect.cytraprinter.client.ServerHelper;
 import dev.steelaspect.cytraprinter.client.config.Configs;
@@ -184,6 +186,7 @@ public final class Printer {
             return;
         }
         Skipped.checkLevel(mc.level);
+        StateRules.railShapes = RailFix.active();
         WorldSchematic schematic = SchematicWorldHandler.getSchematicWorld();
         if (schematic == null || player.isSpectator()) {
             Look.unlock(mc);
@@ -560,6 +563,9 @@ public final class Printer {
         List<Job> places = new ArrayList<>();
         for (Job j : jobs) if (j.kind() == Kind.PLACE) places.add(j);
         places.sort(Comparator.<Job>comparingInt(j -> j.pos().getY())
+                // Exact curves and slopes (Rail Placement Fix) last: a straight rail placed next to a curve later
+                // would bend it again.
+                .thenComparingInt(j -> StateRules.exactRailShape(j.target()) ? 1 : 0)
                 .thenComparingInt(j -> j.item() == held ? 0 : 1)
                 .thenComparing(j -> j.item().getDescriptionId())
                 .thenComparingDouble(Job::dist));

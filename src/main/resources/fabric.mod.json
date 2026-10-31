@@ -48,6 +48,7 @@
   },
   "suggests": {
     "containerautofill": "*",
-    "cytra-hub": "*"
+    "cytra-hub": "*",
+    "rail-placement-fix": "*"
   }
 }

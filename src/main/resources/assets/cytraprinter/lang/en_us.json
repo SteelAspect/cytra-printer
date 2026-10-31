@@ -172,5 +172,8 @@
   "cytraprinter.hub.retried": "The printer tries the skipped spots again",
   "cytraprinter.config.name.tillFarmland": "Till Farmland",
   "cytraprinter.config.prettyName.tillFarmland": "Till Farmland",
-  "cytraprinter.config.comment.tillFarmland": "Make farmland with a hoe: dirt, grass and paths are tilled (coarse and rooted dirt in two clicks), and an empty spot gets dirt first. Crops, stems and nether wart are then planted on top as usual."
+  "cytraprinter.config.comment.tillFarmland": "Make farmland with a hoe: dirt, grass and paths are tilled (coarse and rooted dirt in two clicks), and an empty spot gets dirt first. Crops, stems and nether wart are then planted on top as usual.",
+  "cytraprinter.config.name.railShapes": "Exact Rail Shapes",
+  "cytraprinter.config.prettyName.railShapes": "Exact Rail Shapes",
+  "cytraprinter.config.comment.railShapes": "With Rail Placement Fix installed (on your client and on the server), rails are placed sneaking in exactly the schematic's shape (curves, slopes) without bending neighbouring rails. Without that mod this does nothing."
 }

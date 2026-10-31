@@ -42,6 +42,9 @@ can't place exactly from your position.
 - **Farmland and crops**: dirt, grass and paths under schematic farmland are tilled with a hoe (coarse and rooted dirt in
   two clicks); an empty spot gets dirt first. Wheat, carrots, potatoes, beetroot, stems and nether wart are then planted on
   top. A stem attached to a pumpkin or melon is planted as a plain stem. *Till Farmland* in the Extras tab turns it off.
+- **Rail Placement Fix** (2No2Name, optional; needed on your client *and* the server): curved and sloped rails are placed
+  in exactly the schematic's shape, sneaking at a corner or the upper half the way that mod works, and neighbouring
+  rails aren't bent. Straight rails still join their neighbours the vanilla way. *Exact Rail Shapes* in Extras.
 - **Composter levels**: fills composters to the schematic's level (best compost chance first, never items the build
   still needs); a full composter is emptied first.
 - **Coral**: live coral stands in for dead coral (it dies by itself), and live coral waits until there is water so it

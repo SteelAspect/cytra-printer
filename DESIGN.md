@@ -112,6 +112,17 @@ the same config.
   They wait (`canSurvive`) until the farmland is there and it's light enough.
 - Attached pumpkin/melon stems are planted as the plain stem; a plain or attached stem counts as right.
 
+## Rail Placement Fix (1.3.3)
+- The mod (`rail-placement-fix` 1.1.0, server + client) makes a sneak-placed rail curved when clicked at a top/bottom
+  corner (x/z frac < 0.3125 or > 0.6875), and sloped when clicked on the upper half of a side or on the bottom face.
+  Those shapes skip the vanilla connection step (`NO_CONNECT_POS`). Straight rails still connect normally.
+- With it loaded and *Exact Rail Shapes* on, `StateRules.railShapes` is set, and curve/slope shapes count as placement
+  properties (`exactRailShape`). The solver places them sneaking only; simulation sets the sneak *input*
+  (`LocalPlayer.isShiftKeyDown` reads input) and clears the mod's thread-locals afterwards (`RailFix`).
+- Exact curves and slopes are placed after straight rails in the same layer, so a later straight neighbour can't bend them.
+- Test: `-PwithRailFix`, `CYTRA_TEST_ONLY=rails`. Without the mod on the server, curves come out vanilla and end up
+  parked as "gave up".
+
 ## Open ideas
 - Auto-craft missing items through Alloy Mass Craft (optional hook, like Restock).
 - A server GameTest for the helper.

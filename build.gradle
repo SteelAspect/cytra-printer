@@ -55,6 +55,10 @@ dependencies {
     // Optional Alloy Hub page. Compile-only; only loaded when the Hub is installed.
     modCompileOnly fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
     // -PwithHub: dev runs/tests with Alloy Hub installed
+    // -PwithRailFix: dev runs/tests with Rail Placement Fix (exact rail shapes)
+    if (project.hasProperty('withRailFix')) {
+        modLocalRuntime "maven.modrinth:rail-placement-fix:UVpyM92U"
+    }
     if (project.hasProperty('withHub')) {
         modLocalRuntime fileTree(dir: 'libs', include: 'alloy-hub-*.jar')
     }

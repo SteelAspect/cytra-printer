@@ -99,6 +99,12 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             lagSafety(context, world, origin.offset(-24, 0, 0));
             // Farmland with a hoe and crops on it (CYTRA_TEST_ONLY=farm runs just the settings checks and this).
             farming(context, world, origin.offset(-36, 0, 0));
+            // Exact rail shapes with Rail Placement Fix (only with -PwithRailFix; CYTRA_TEST_ONLY=rails runs up to here).
+            if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("rail-placement-fix")) rails(context, world, origin.offset(-48, 0, 0));
+            if ("rails".equals(System.getenv("CYTRA_TEST_ONLY"))) {
+                if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
+                return;
+            }
             if ("farm".equals(System.getenv("CYTRA_TEST_ONLY"))) {
                 if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
                 return;
@@ -989,6 +995,65 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
         });
         world.getServer().runCommand("gamemode creative @a");
+    }
+
+    /** Rail patterns vanilla clicks can't make (neighbours would bend): with Rail Placement Fix every shape comes out exact. */
+    private void rails(ClientGameTestContext context, TestSingleplayerContext world, BlockPos o) {
+        BlockPos max = o.offset(8, 3, 8);
+        int f = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        var S = BlockStateProperties.RAIL_SHAPE;
+        var SS = BlockStateProperties.RAIL_SHAPE_STRAIGHT;
+        Map<BlockPos, BlockState> want = new LinkedHashMap<>();
+        want.put(o.offset(1, 1, 1), Blocks.RAIL.defaultBlockState().setValue(S, net.minecraft.world.level.block.state.properties.RailShape.NORTH_SOUTH));
+        want.put(o.offset(2, 1, 1), Blocks.RAIL.defaultBlockState().setValue(S, net.minecraft.world.level.block.state.properties.RailShape.NORTH_SOUTH));
+        want.put(o.offset(5, 1, 1), Blocks.RAIL.defaultBlockState().setValue(S, net.minecraft.world.level.block.state.properties.RailShape.SOUTH_EAST));
+        want.put(o.offset(1, 1, 4), Blocks.RAIL.defaultBlockState().setValue(S, net.minecraft.world.level.block.state.properties.RailShape.EAST_WEST));
+        want.put(o.offset(2, 1, 4), Blocks.RAIL.defaultBlockState().setValue(S, net.minecraft.world.level.block.state.properties.RailShape.NORTH_EAST));
+        want.put(o.offset(5, 1, 4), Blocks.RAIL.defaultBlockState().setValue(S, net.minecraft.world.level.block.state.properties.RailShape.ASCENDING_EAST));
+        want.put(o.offset(1, 1, 7), Blocks.POWERED_RAIL.defaultBlockState().setValue(SS, net.minecraft.world.level.block.state.properties.RailShape.EAST_WEST));
+        want.put(o.offset(2, 1, 7), Blocks.POWERED_RAIL.defaultBlockState().setValue(SS, net.minecraft.world.level.block.state.properties.RailShape.NORTH_SOUTH));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, p.getY() == o.getY() ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), f);
+            level.setBlock(o.offset(6, 1, 4), Blocks.STONE.defaultBlockState(), f); // the slope's high side
+            // Skip onPlace, or vanilla would already connect the rails in the schematic.
+            want.forEach((p, st) -> level.setBlock(p, st, f | Block.UPDATE_SKIP_ON_PLACE));
+        });
+        LitematicaSchematic schematic = world.getServer().computeOnServer(server -> capture(server, o, max, "rails"));
+        world.getServer().runOnServer(server -> {
+            clear(server, o, max);
+            server.overworld().setBlock(o.offset(6, 1, 4), Blocks.STONE.defaultBlockState(), 3);
+            server.getPlayerList().getPlayers().get(0).teleportTo(server.overworld(), o.getX() + 3.5, o.getY() + 4, o.getZ() + 4.5, Set.of(), 0f, 60f, true);
+        });
+        world.getServer().runCommand("gamemode creative @a");
+        context.runOnClient(client -> {
+            Configs.USE_SERVER_HELPER.setBooleanValue(false);
+            Configs.RAIL_SHAPES.setBooleanValue(true);
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, o, "printer-rails", true, true), false);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+        for (int i = 0; i < 4; i++) settle(context);
+        LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("rails-printed")));
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+        Map<BlockPos, BlockState> got = world.getServer().computeOnServer(server -> {
+            Map<BlockPos, BlockState> m = new LinkedHashMap<>();
+            for (BlockPos p : want.keySet()) m.put(p, server.overworld().getBlockState(p));
+            return m;
+        });
+        want.forEach((p, st) -> {
+            BlockState have = got.get(p);
+            var prop = st.hasProperty(S) ? S : SS;
+            // Curves and slopes exactly; straight rails connect the vanilla way, so only the rail itself is checked.
+            boolean exact = dev.steelaspect.cytraprinter.state.StateRules.exactRailShape(st);
+            boolean ok = have.is(st.getBlock()) && (!exact || have.getValue(prop) == st.getValue(prop));
+            check("rails: " + st.getBlock().getName().getString() + " " + st.getValue(prop) + (exact ? " exact" : " placed") + " at " + p.toShortString(), ok, have.toString());
+        });
+        context.runOnClient(client -> DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
+        });
     }
 
     private void check(String label, boolean ok, String detail) {

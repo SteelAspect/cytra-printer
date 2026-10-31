@@ -59,7 +59,7 @@ public final class StateRules {
     public static boolean placedCorrectly(BlockState world, BlockState target) {
         if (world.getBlock() != target.getBlock()) return false;
         for (Property<?> p : target.getProperties()) {
-            if (controls(target.getBlock(), p) && !world.getValue(p).equals(target.getValue(p))) return false;
+            if ((controls(target.getBlock(), p) || railShapeControlled(target, p)) && !world.getValue(p).equals(target.getValue(p))) return false;
         }
         return true;
     }
@@ -70,8 +70,32 @@ public final class StateRules {
     }
 
     /** Placement property of this block: the general ones, plus a ceiling hanging sign's chain style (sneak-placed). */
+    /**
+     * Rail shapes count as placement properties too: set on the client while Rail Placement Fix is there to place them
+     * exactly (otherwise a rail's shape follows its neighbours).
+     */
+    public static volatile boolean railShapes;
+
     public static boolean controls(Block block, Property<?> p) {
         return isPlacementProperty(p) || (p == BlockStateProperties.ATTACHED && block instanceof CeilingHangingSignBlock);
+    }
+
+    /**
+     * With Rail Placement Fix, curves and slopes are placed exactly (sneak-placing them keeps their shape and leaves
+     * neighbours alone). Straight rails still connect to their neighbours the vanilla way, so their shape isn't checked.
+     */
+    static boolean railShapeControlled(BlockState target, Property<?> p) {
+        if (!railShapes || !(target.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock)) return false;
+        if (p != BlockStateProperties.RAIL_SHAPE && p != BlockStateProperties.RAIL_SHAPE_STRAIGHT) return false;
+        net.minecraft.world.level.block.state.properties.RailShape shape = (net.minecraft.world.level.block.state.properties.RailShape) target.getValue(p);
+        return shape.isSlope() || (shape != net.minecraft.world.level.block.state.properties.RailShape.NORTH_SOUTH
+                && shape != net.minecraft.world.level.block.state.properties.RailShape.EAST_WEST);
+    }
+
+    /** Whether the printer must get this rail's shape exactly right (curve or slope, with Rail Placement Fix). */
+    public static boolean exactRailShape(BlockState target) {
+        if (!(target.getBlock() instanceof net.minecraft.world.level.block.BaseRailBlock rail)) return false;
+        return railShapeControlled(target, rail.getShapeProperty());
     }
 
     /**
@@ -92,7 +116,7 @@ public final class StateRules {
                 int w = world.getValue(ip), t = target.getValue(ip);
                 if (w > t) return false;
                 if (w < t) smaller = true;
-            } else if (controls(target.getBlock(), p) && !world.getValue(p).equals(target.getValue(p))) {
+            } else if ((controls(target.getBlock(), p) || railShapeControlled(target, p)) && !world.getValue(p).equals(target.getValue(p))) {
                 return false;
             }
         }
@@ -117,7 +141,7 @@ public final class StateRules {
                 ChestType r = result.getValue(BlockStateProperties.CHEST_TYPE);
                 ChestType t = target.getValue(BlockStateProperties.CHEST_TYPE);
                 if (r != t && !(r == ChestType.SINGLE && !partnerPresent)) return false;
-            } else if (controls(target.getBlock(), p) && !result.getValue(p).equals(target.getValue(p))) {
+            } else if ((controls(target.getBlock(), p) || railShapeControlled(target, p)) && !result.getValue(p).equals(target.getValue(p))) {
                 return false;
             }
         }
