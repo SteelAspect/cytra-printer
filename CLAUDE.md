@@ -22,7 +22,7 @@ Own Litematica printer (places schematic blocks) plus an optional server helper 
 export JAVA_HOME=~/.local/share/PrismLauncher/java/java-runtime-delta
 ./gradlew build
 ./gradlew runClientGameTest                       # PrinterClientGameTest: ~70 blocks x every state, creative +/- helper, survival (long)
-CYTRA_TEST_ONLY=settings ./gradlew runClientGameTest   # also: skipped | extras (~30 s) | perf
+CYTRA_TEST_ONLY=settings ./gradlew runClientGameTest   # also: skipped | farm | extras (~30 s) | perf
 CYTRA_TEST_BLOCKS=bell,observer ./gradlew runClientGameTest   # limit the big build
 ./gradlew runClientGameTest -PwithHub             # with Alloy Hub installed
 ```

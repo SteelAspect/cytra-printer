@@ -97,6 +97,12 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             // Skipped-block outlines, next and retry (CYTRA_TEST_ONLY=skipped: only this and the settings).
             skipped(context, world, origin.offset(-12, 0, 0));
             lagSafety(context, world, origin.offset(-24, 0, 0));
+            // Farmland with a hoe and crops on it (CYTRA_TEST_ONLY=farm runs just the settings checks and this).
+            farming(context, world, origin.offset(-36, 0, 0));
+            if ("farm".equals(System.getenv("CYTRA_TEST_ONLY"))) {
+                if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
+                return;
+            }
             if ("settings".equals(System.getenv("CYTRA_TEST_ONLY")) || "skipped".equals(System.getenv("CYTRA_TEST_ONLY"))) {
                 if (this.failures > 0) throw new AssertionError(this.failures + " printer check(s) failed, see log");
                 return;
@@ -896,6 +902,93 @@ public class PrinterClientGameTest implements FabricClientGameTest {
             ServerLevel level = server.overworld();
             for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
         });
+    }
+
+    /**
+     * Survival, vanilla mode: farmland tilled from grass, dirt and coarse dirt (two clicks), an empty spot gets dirt and
+     * is tilled, then wheat, carrots and potatoes are planted, and a stem attached to a pumpkin is planted as a stem.
+     */
+    private void farming(ClientGameTestContext context, TestSingleplayerContext world, BlockPos o) {
+        String mode = "farm";
+        BlockPos max = o.offset(6, 3, 6);
+        BlockPos grass = o.offset(1, 1, 1), dirt = o.offset(3, 1, 1), coarse = o.offset(5, 1, 1), empty = o.offset(1, 1, 3), stemSoil = o.offset(3, 1, 3);
+        BlockPos pumpkin = o.offset(4, 2, 3);
+        int f = Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, p.getY() == o.getY() ? Blocks.STONE.defaultBlockState() : Blocks.AIR.defaultBlockState(), f);
+            for (BlockPos p : List.of(grass, dirt, coarse, empty, stemSoil)) level.setBlock(p, Blocks.FARMLAND.defaultBlockState(), f);
+            level.setBlock(grass.above(), Blocks.WHEAT.defaultBlockState().setValue(BlockStateProperties.AGE_7, 7), f);
+            level.setBlock(dirt.above(), Blocks.CARROTS.defaultBlockState(), f);
+            level.setBlock(empty.above(), Blocks.POTATOES.defaultBlockState(), f);
+            level.setBlock(pumpkin.below(), Blocks.STONE.defaultBlockState(), f);
+            level.setBlock(pumpkin, Blocks.PUMPKIN.defaultBlockState(), f);
+            level.setBlock(stemSoil.above(), Blocks.ATTACHED_PUMPKIN_STEM.defaultBlockState().setValue(BlockStateProperties.HORIZONTAL_FACING, Direction.EAST), f);
+        });
+        LitematicaSchematic schematic = world.getServer().computeOnServer(server -> capture(server, o, max, "farm"));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            clear(server, o, max);
+            level.setBlock(grass, Blocks.GRASS_BLOCK.defaultBlockState(), 3);
+            level.setBlock(dirt, Blocks.DIRT.defaultBlockState(), 3);
+            level.setBlock(coarse, Blocks.COARSE_DIRT.defaultBlockState(), 3);
+            level.setBlock(stemSoil, Blocks.DIRT.defaultBlockState(), 3);
+            level.setBlock(pumpkin.below(), Blocks.STONE.defaultBlockState(), 3);
+            level.setBlock(pumpkin, Blocks.PUMPKIN.defaultBlockState(), 3);
+        });
+        world.getServer().runCommand("gamemode survival @a");
+        world.getServer().runCommand("time set noon");
+        world.getServer().runOnServer(server -> {
+            ServerPlayer p = server.getPlayerList().getPlayers().get(0);
+            Inventory inv = p.getInventory();
+            inv.clearContent();
+            inv.setItem(0, new ItemStack(Items.DIAMOND_SWORD));
+            inv.setItem(10, new ItemStack(Items.IRON_HOE));
+            inv.setItem(11, new ItemStack(Items.WHEAT_SEEDS, 8));
+            inv.setItem(12, new ItemStack(Items.CARROT, 8));
+            inv.setItem(13, new ItemStack(Items.POTATO, 8));
+            inv.setItem(14, new ItemStack(Items.PUMPKIN_SEEDS, 8));
+            inv.setItem(15, new ItemStack(Items.DIRT, 8));
+            p.getAbilities().mayfly = true;
+            p.getAbilities().flying = true;
+            p.onUpdateAbilities();
+            p.teleportTo(server.overworld(), o.getX() + 3.5, o.getY() + 4, o.getZ() + 2.5, Set.of(), 0f, 60f, true);
+        });
+        context.runOnClient(client -> {
+            Configs.USE_SERVER_HELPER.setBooleanValue(false);
+            Configs.TILL_FARMLAND.setBooleanValue(true);
+            DataManager.getSchematicPlacementManager().addSchematicPlacement(SchematicPlacement.createFor(schematic, o, "printer-farm", true, true), false);
+        });
+        context.waitTicks(10);
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(true));
+        for (int i = 0; i < 4; i++) settle(context);
+        LOG.info("Screenshot: {}", context.takeScreenshot(TestScreenshotOptions.of("farm-printed")));
+        context.runOnClient(client -> Configs.PRINTING.setBooleanValue(false));
+
+        Map<BlockPos, BlockState> got = world.getServer().computeOnServer(server -> {
+            Map<BlockPos, BlockState> m = new LinkedHashMap<>();
+            for (BlockPos p : List.of(grass, dirt, coarse, empty, stemSoil)) {
+                m.put(p, server.overworld().getBlockState(p));
+                m.put(p.above(), server.overworld().getBlockState(p.above()));
+            }
+            return m;
+        });
+        for (BlockPos p : List.of(grass, dirt, coarse, empty, stemSoil)) {
+            check(mode + ": farmland at " + p.toShortString(), got.get(p).is(Blocks.FARMLAND), got.get(p).toString());
+        }
+        check(mode + ": wheat planted", got.get(grass.above()).is(Blocks.WHEAT), got.get(grass.above()).toString());
+        check(mode + ": carrots planted", got.get(dirt.above()).is(Blocks.CARROTS), got.get(dirt.above()).toString());
+        check(mode + ": potatoes planted on new dirt", got.get(empty.above()).is(Blocks.POTATOES), got.get(empty.above()).toString());
+        check(mode + ": nothing on the empty farmland", got.get(coarse.above()).isAir(), got.get(coarse.above()).toString());
+        BlockState stem = got.get(stemSoil.above());
+        check(mode + ": pumpkin stem planted", stem.is(Blocks.PUMPKIN_STEM) || stem.is(Blocks.ATTACHED_PUMPKIN_STEM), stem.toString());
+
+        context.runOnClient(client -> DataManager.getSchematicPlacementManager().removeAllPlacementsOfSchematic(schematic));
+        world.getServer().runOnServer(server -> {
+            ServerLevel level = server.overworld();
+            for (BlockPos p : BlockPos.betweenClosed(o, max)) level.setBlock(p, Blocks.AIR.defaultBlockState(), f);
+        });
+        world.getServer().runCommand("gamemode creative @a");
     }
 
     private void check(String label, boolean ok, String detail) {

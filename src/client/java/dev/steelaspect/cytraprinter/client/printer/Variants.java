@@ -9,6 +9,7 @@ import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
@@ -80,5 +81,18 @@ final class Variants {
             if (out.hasProperty(p)) out = out.setValue(p, from.getValue(p));
         }
         return out;
+    }
+
+    /** What a hoe turns into farmland (dirt, grass, path) or into dirt first (coarse and rooted dirt). */
+    static boolean tillable(BlockState world) {
+        return world.is(Blocks.DIRT) || world.is(Blocks.GRASS_BLOCK) || world.is(Blocks.DIRT_PATH)
+                || world.is(Blocks.COARSE_DIRT) || world.is(Blocks.ROOTED_DIRT);
+    }
+
+    /** The plain stem for an attached pumpkin/melon stem (seeds only ever place the plain one), or null. */
+    static Block detachedStem(Block block) {
+        if (block == Blocks.ATTACHED_PUMPKIN_STEM) return Blocks.PUMPKIN_STEM;
+        if (block == Blocks.ATTACHED_MELON_STEM) return Blocks.MELON_STEM;
+        return null;
     }
 }

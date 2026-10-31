@@ -80,6 +80,7 @@ public final class Configs implements IConfigHandler {
 
     // --- Extras ---
     public static final ConfigBoolean STRIP_LOGS = new ConfigBoolean("stripLogs", true).apply(PREFIX);
+    public static final ConfigBoolean TILL_FARMLAND = new ConfigBoolean("tillFarmland", true).apply(PREFIX);
     public static final ConfigBoolean COMPOSTER_LEVELS = new ConfigBoolean("composterLevels", true).apply(PREFIX);
     public static final ConfigStringList COMPOSTER_ITEMS = new ConfigStringList("composterItems", ImmutableList.of()).apply(PREFIX);
     public static final ConfigBoolean LIVE_CORAL_FOR_DEAD = new ConfigBoolean("liveCoralForDead", true).apply(PREFIX);
@@ -89,6 +90,7 @@ public final class Configs implements IConfigHandler {
 
     public static final ImmutableList<IConfigBase> EXTRAS = ImmutableList.of(
             STRIP_LOGS,
+            TILL_FARMLAND,
             COMPOSTER_LEVELS,
             COMPOSTER_ITEMS,
             LIVE_CORAL_FOR_DEAD,

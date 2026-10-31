@@ -39,6 +39,9 @@ can't place exactly from your position.
 - **Excluded blocks** (Blocks tab): ids or tags the printer never places or fixes. Bind **Exclude Looked-At Block**
   to add/remove the block under your crosshair. **Protected blocks** are never broken.
 - **Strip logs**: no stripped logs in your inventory but plain ones and an axe? It places the plain log and strips it.
+- **Farmland and crops**: dirt, grass and paths under schematic farmland are tilled with a hoe (coarse and rooted dirt in
+  two clicks); an empty spot gets dirt first. Wheat, carrots, potatoes, beetroot, stems and nether wart are then planted on
+  top. A stem attached to a pumpkin or melon is planted as a plain stem. *Till Farmland* in the Extras tab turns it off.
 - **Composter levels**: fills composters to the schematic's level (best compost chance first, never items the build
   still needs); a full composter is emptied first.
 - **Coral**: live coral stands in for dead coral (it dies by itself), and live coral waits until there is water so it

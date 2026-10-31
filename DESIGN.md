@@ -104,6 +104,14 @@ the same config.
   an intent for the aimed spot.
 - Breaking: the fastest tool, or a pickaxe when no tool beats a hand (glass), never a sword or a block in hand.
 
+## Farmland and crops (1.3.3)
+- Farmland has no survival item. When the schematic wants farmland, dirt, grass, a path, coarse dirt or rooted dirt there is
+  tilled (`Kind.TILL`: hoe, click on the top face, needs air above; coarse/rooted dirt take two clicks). An empty spot
+  gets dirt (`substitute`) when the player has dirt and a hoe. *Till Farmland* (Extras) turns it off.
+- Crops are ordinary block items (seeds, carrot, potato...). Age isn't a placement property, so any age counts as right.
+  They wait (`canSurvive`) until the farmland is there and it's light enough.
+- Attached pumpkin/melon stems are planted as the plain stem; a plain or attached stem counts as right.
+
 ## Open ideas
 - Auto-craft missing items through Alloy Mass Craft (optional hook, like Restock).
 - A server GameTest for the helper.

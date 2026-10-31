@@ -79,7 +79,7 @@ import java.util.Set;
  * answered, and one that keeps failing is parked for a while instead of being retried forever.
  */
 public final class Printer {
-    private enum Kind { PLACE, CLICK, POT, BREAK, STRIP, COMPOST, BEDROCK }
+    private enum Kind { PLACE, CLICK, POT, BREAK, STRIP, TILL, COMPOST, BEDROCK }
 
     private record Job(Kind kind, BlockPos pos, BlockState target, BlockState world, Item item, double dist) {
     }
@@ -370,6 +370,15 @@ public final class Printer {
             attempts.remove(pos.asLong());
             return null;
         }
+        // A stem attached to its pumpkin/melon is the plain stem once the fruit grows next to it: plant the stem.
+        Block stem = Variants.detachedStem(target.getBlock());
+        if (stem != null) {
+            if (world.is(target.getBlock()) || world.is(stem)) {
+                attempts.remove(pos.asLong());
+                return null;
+            }
+            target = stem.defaultBlockState();
+        }
         double dist = eye.distanceToSqr(Vec3.atCenterOf(pos));
         // Excluded blocks: the printer leaves their spots alone, missing or wrong.
         if (!target.isAir() && EXCLUDED.matches(Configs.EXCLUDED_BLOCKS.getStrings(), target.getBlock())) return null;
@@ -430,6 +439,17 @@ public final class Printer {
             return null;
         }
 
+        // Farmland: dirt, grass or a path there gets tilled with a hoe (coarse and rooted dirt take a second click).
+        // The hoe only works with air above, so a block in the way holds it back.
+        if (target.is(Blocks.FARMLAND) && Configs.TILL_FARMLAND.getBooleanValue() && Variants.tillable(world)) {
+            if (!level.getBlockState(pos.above()).isAir()) {
+                Stats.held++;
+                return null;
+            }
+            Stats.remaining++;
+            return new Job(Kind.TILL, pos, target, world, null, dist);
+        }
+
         // Stripped logs: the plain log is there the right way round, so strip it with an axe.
         Block log = Variants.unstripped(target.getBlock());
         if (log != null && Configs.STRIP_LOGS.getBooleanValue() && world.is(log)
@@ -470,11 +490,19 @@ public final class Printer {
         if (log != null && Configs.STRIP_LOGS.getBooleanValue() && Hotbar.carries(player, log.asItem()) && Hotbar.any(player, Printer::isAxe)) {
             return Variants.copyProperties(target, log);
         }
+        // Farmland without a farmland item: dirt now, tilled with a hoe once it's there.
+        if (b == Blocks.FARMLAND && Configs.TILL_FARMLAND.getBooleanValue() && Hotbar.carries(player, Items.DIRT) && Hotbar.any(player, Printer::isHoe)) {
+            return Blocks.DIRT.defaultBlockState();
+        }
         Block alive = Variants.alive(b);
         if (alive != null && Configs.LIVE_CORAL_FOR_DEAD.getBooleanValue() && Hotbar.carries(player, alive.asItem()) && !Variants.coralSurvives(mc.level, pos)) {
             return Variants.copyProperties(target, alive);
         }
         return target;
+    }
+
+    private static boolean isHoe(ItemStack s) {
+        return s.is(net.minecraft.tags.ItemTags.HOES) && (!s.isDamageableItem() || s.getMaxDamage() - s.getDamageValue() > 2);
     }
 
     private static boolean isAxe(ItemStack s) {
@@ -815,6 +843,20 @@ public final class Printer {
                 BlockState world = mc.level.getBlockState(job.pos());
                 use(mc, clickPlan(player, job.pos(), world));
                 touched(mc, job.pos(), world, job.target());
+                clicks++;
+            } else if (job.kind() == Kind.TILL) {
+                boolean hoe = player.hasInfiniteMaterials() && !Hotbar.any(player, Printer::isHoe)
+                        ? Hotbar.select(mc, Items.DIAMOND_HOE)
+                        : Hotbar.selectBest(mc, s -> isHoe(s) ? 1 : 0);
+                if (!hoe) {
+                    Stats.missing.merge(Items.IRON_HOE, 1, Integer::sum);
+                    continue;
+                }
+                BlockPos pos = job.pos();
+                BlockState world = mc.level.getBlockState(pos);
+                // Always the top face: a hoe does nothing from below.
+                use(mc, new PlacePlan(pos, Direction.UP, Vec3.atCenterOf(pos).add(0, 0.5, 0), Look.headYaw, 90f, Look.headYaw, false));
+                touched(mc, pos, world, job.target());
                 clicks++;
             } else if (job.kind() == Kind.COMPOST) {
                 clicks += compost(mc, job, needed);

@@ -169,5 +169,8 @@
   "cytraprinter.msg.skipped_retry": "Retrying %s skipped spots",
   "cytraprinter.hub.skipped": "Skipped",
   "cytraprinter.hub.skipped.value": "%s wrong, %s can't place, %s gave up",
-  "cytraprinter.hub.retried": "The printer tries the skipped spots again"
+  "cytraprinter.hub.retried": "The printer tries the skipped spots again",
+  "cytraprinter.config.name.tillFarmland": "Till Farmland",
+  "cytraprinter.config.prettyName.tillFarmland": "Till Farmland",
+  "cytraprinter.config.comment.tillFarmland": "Make farmland with a hoe: dirt, grass and paths are tilled (coarse and rooted dirt in two clicks), and an empty spot gets dirt first. Crops, stems and nether wart are then planted on top as usual."
 }
