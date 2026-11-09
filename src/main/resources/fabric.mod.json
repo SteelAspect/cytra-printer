@@ -11,7 +11,7 @@
     "sources": "https://github.com/SteelAspect/cytra-printer",
     "issues": "https://github.com/SteelAspect/cytra-printer/issues"
   },
-  "license": "All-Rights-Reserved",
+  "license": "MIT",
   "icon": "assets/cytraprinter/icon.png",
   "environment": "*",
   "entrypoints": {
