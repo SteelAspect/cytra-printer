@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "id": "cytraprinter-test",
   "version": "1.0.0",
+  "license": "MIT",
   "name": "Alloy Printer (client game tests)",
   "authors": ["steelaspect"],
   "environment": "client",
